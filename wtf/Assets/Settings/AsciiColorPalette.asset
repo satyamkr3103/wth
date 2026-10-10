@@ -1,0 +1,92 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bce5ed883e4260b42bde75c7cd023849, type: 3}
+  m_Name: AsciiColorPalette
+  m_EditorClassIdentifier: Assembly-CSharp::AsciiActionGame.Core.AsciiColorPalette
+  CanvasBackground:
+    serializedVersion: 2
+    rgba: 4278190080
+  GroundPrimary:
+    serializedVersion: 2
+    rgba: 4281172551
+  GroundSecondary:
+    serializedVersion: 2
+    rgba: 4279733307
+  PathDirt:
+    serializedVersion: 2
+    rgba: 4280954930
+  RockObstacle:
+    serializedVersion: 2
+    rgba: 4285095765
+  WallSolid:
+    serializedVersion: 2
+    rgba: 4284774470
+  WallDense:
+    serializedVersion: 2
+    rgba: 4283457330
+  DataStream:
+    serializedVersion: 2
+    rgba: 4278551596
+  Vegetation:
+    serializedVersion: 2
+    rgba: 4278428982
+  CanopyLeaves:
+    serializedVersion: 2
+    rgba: 4279539003
+  CanopyDense:
+    serializedVersion: 2
+    rgba: 4278865439
+  WaterPrimary:
+    serializedVersion: 2
+    rgba: 4288696345
+  WaterSecondary:
+    serializedVersion: 2
+    rgba: 4291983405
+  WaterWave:
+    serializedVersion: 2
+    rgba: 4294947920
+  PlayerPrimary:
+    serializedVersion: 2
+    rgba: 4294963200
+  PlayerSecondary:
+    serializedVersion: 2
+    rgba: 4294967295
+  PlayerTrail:
+    serializedVersion: 2
+    rgba: 3031731200
+  EnemyCore:
+    serializedVersion: 2
+    rgba: 4283446015
+  EnemyArmor:
+    serializedVersion: 2
+    rgba: 4280829640
+  EnemyLimb:
+    serializedVersion: 2
+    rgba: 4280192255
+  EnemyFragment:
+    serializedVersion: 2
+    rgba: 4280834815
+  EraserBeam:
+    serializedVersion: 2
+    rgba: 4290051960
+  EraserTrail:
+    serializedVersion: 2
+    rgba: 3027814460
+  ImpactVFX:
+    serializedVersion: 2
+    rgba: 4291362815
+  CorruptionPrimary:
+    serializedVersion: 2
+    rgba: 4294912200
+  CorruptionSecondary:
+    serializedVersion: 2
+    rgba: 4289991810
