@@ -109,7 +109,22 @@ namespace AsciiActionGame.AI
                     break;
             }
 
-            if (_latestMacroDecision.should_sacrifice && _sacrificeAction != null)
+            if (_latestMacroDecision.action == AIActionType.TeleportBehind && _enemy.CanTeleport)
+            {
+                var player = FindFirstObjectByType<Player.PlayerController>();
+                if (player != null)
+                {
+                    _enemy.PerformTeleportBehind(player.transform);
+                }
+            }
+            else if (_latestMacroDecision.action == AIActionType.DodgeDash && _enemy.CanDash)
+            {
+                var player = FindFirstObjectByType<Player.PlayerController>();
+                Vector2 aim = player != null ? player.AimDirection : Vector2.right;
+                Vector2 perp = new Vector2(-aim.y, aim.x);
+                _enemy.PerformDodgeDash(perp);
+            }
+            else if (_latestMacroDecision.should_sacrifice && _sacrificeAction != null)
             {
                 BodyPartType? partType = null;
                 if (!string.IsNullOrEmpty(_latestMacroDecision.target_limb) &&
@@ -124,6 +139,8 @@ namespace AsciiActionGame.AI
 
         private void ApplyMicroReflexes()
         {
+            if (_enemy.IsDashing) return;
+
             EnemyGameState state = BuildGameStateSnapshot();
 
             Vector2 moveDir = _latestMacroDecision.desired_move_direction;

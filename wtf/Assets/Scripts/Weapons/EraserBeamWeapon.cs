@@ -16,7 +16,7 @@ namespace AsciiActionGame.Weapons
         {
             _weaponName = "Eraser Beam";
             _damage = 35f;
-            _fireRate = 10f;
+            _fireRate = 3.5f;
             _maxRange = 22f;
 
             if (_beamVfx == null)
@@ -53,6 +53,13 @@ namespace AsciiActionGame.Weapons
 
                 endPoint = hit.point;
 
+                EnemyEntity enemy = hit.collider.GetComponent<EnemyEntity>() ?? hit.collider.GetComponentInParent<EnemyEntity>();
+                if (enemy != null && enemy.IsDashing)
+                {
+                    AsciiActionGame.Rendering.DisintegrationEffect.TriggerBurst(hit.point, 4, new Color32(0, 255, 255, 255), 2.5f, 0.15f);
+                    continue;
+                }
+
                 EnemyBodyPart bodyPart = hit.collider.GetComponent<EnemyBodyPart>();
                 if (bodyPart != null && bodyPart.IsActivePart)
                 {
@@ -67,7 +74,6 @@ namespace AsciiActionGame.Weapons
                     continue;
                 }
 
-                EnemyEntity enemy = hit.collider.GetComponent<EnemyEntity>() ?? hit.collider.GetComponentInParent<EnemyEntity>();
                 if (enemy != null && !enemy.IsDead)
                 {
                     DamageInfo info = new DamageInfo(_damage, DamageType.Eraser, hit.point, hit.normal, gameObject);

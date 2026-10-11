@@ -1,8 +1,6 @@
 using UnityEngine;
-using AsciiActionGame.Combat;
-#if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
-#endif
+using AsciiActionGame.Combat;
 
 namespace AsciiActionGame.Player
 {
@@ -107,7 +105,6 @@ namespace AsciiActionGame.Player
         {
             Vector2 input = Vector2.zero;
 
-#if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null)
             {
                 if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed) input.y += 1f;
@@ -115,10 +112,20 @@ namespace AsciiActionGame.Player
                 if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) input.x -= 1f;
                 if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) input.x += 1f;
             }
-#else
-            input.x = Input.GetAxisRaw("Horizontal");
-            input.y = Input.GetAxisRaw("Vertical");
-#endif
+
+            if (Gamepad.current != null)
+            {
+                Vector2 stick = Gamepad.current.leftStick.ReadValue();
+                if (stick.sqrMagnitude > 0.04f)
+                {
+                    input += stick;
+                }
+                Vector2 dpad = Gamepad.current.dpad.ReadValue();
+                if (dpad.sqrMagnitude > 0.04f)
+                {
+                    input += dpad;
+                }
+            }
 
             _moveInput = Vector2.ClampMagnitude(input, 1.0f);
         }
@@ -131,23 +138,45 @@ namespace AsciiActionGame.Player
                 if (_aimCamera == null) return;
             }
 
-            Vector3 mouseScreenPos = Vector3.zero;
+            Vector2 pointerScreenPos = Vector2.zero;
+            bool hasPointer = false;
 
-#if ENABLE_INPUT_SYSTEM
             if (Mouse.current != null)
             {
-                mouseScreenPos = Mouse.current.position.ReadValue();
+                pointerScreenPos = Mouse.current.position.ReadValue();
+                hasPointer = true;
             }
-#else
-            mouseScreenPos = Input.mousePosition;
-#endif
-
-            Vector3 mouseWorldPos = _aimCamera.ScreenToWorldPoint(mouseScreenPos);
-            Vector2 toMouse = (Vector2)mouseWorldPos - (Vector2)transform.position;
-
-            if (toMouse.sqrMagnitude >= (_mouseDeadzoneRadius * _mouseDeadzoneRadius))
+            else if (Pointer.current != null)
             {
-                _targetAimDirection = toMouse.normalized;
+                pointerScreenPos = Pointer.current.position.ReadValue();
+                hasPointer = true;
+            }
+
+            if (hasPointer)
+            {
+                Vector3 mouseWorldPos = _aimCamera.ScreenToWorldPoint(new Vector3(pointerScreenPos.x, pointerScreenPos.y, 0f));
+                Vector2 toMouse = (Vector2)mouseWorldPos - (Vector2)transform.position;
+
+                if (toMouse.sqrMagnitude >= (_mouseDeadzoneRadius * _mouseDeadzoneRadius))
+                {
+                    _targetAimDirection = toMouse.normalized;
+                }
+                else if (_moveInput.sqrMagnitude > 0.01f)
+                {
+                    _targetAimDirection = _moveInput.normalized;
+                }
+            }
+            else if (Gamepad.current != null)
+            {
+                Vector2 rightStick = Gamepad.current.rightStick.ReadValue();
+                if (rightStick.sqrMagnitude > 0.04f)
+                {
+                    _targetAimDirection = rightStick.normalized;
+                }
+                else if (_moveInput.sqrMagnitude > 0.01f)
+                {
+                    _targetAimDirection = _moveInput.normalized;
+                }
             }
             else if (_moveInput.sqrMagnitude > 0.01f)
             {

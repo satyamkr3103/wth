@@ -11904,7 +11904,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AsciiActionGame.Rendering.AsciiCombatHud
   _gameOverPanel: {fileID: 0}
-  _gameWonPanel: {fileID: 0}
+  _gameWonPanel: {fileID: 517175168}
   _playerHudText: {fileID: 0}
   _bossHudText: {fileID: 0}
   _useCanvasText: 1
@@ -11982,7 +11982,8 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 517175171}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -34796,7 +34797,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AsciiActionGame.Weapons.EraserBeamWeapon
   _weaponName: Weapon
   _damage: 1
-  _fireRate: 0.5
+  _fireRate: 5
   _maxRange: 20
   _hitLayers:
     serializedVersion: 2
@@ -37262,6 +37263,81 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 4.75, y: 0.25}
   m_EdgeRadius: 0
+--- !u!1 &517175168
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 517175171}
+  - component: {fileID: 517175170}
+  - component: {fileID: 517175169}
+  m_Layer: 5
+  m_Name: Image
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &517175169
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 517175168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 21300000, guid: 576ab0fdeff16144d9a9df04dc70e4a4, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &517175170
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 517175168}
+  m_CullTransparentMesh: 1
+--- !u!224 &517175171
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 517175168}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 176975951}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 1}
+  m_AnchorMax: {x: 0.5, y: 1}
+  m_AnchoredPosition: {x: 0, y: -151}
+  m_SizeDelta: {x: 1048.6077, y: 195.40479}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &518438025
 GameObject:
   m_ObjectHideFlags: 0
@@ -60263,7 +60339,7 @@ MonoBehaviour:
   _detectionRadius: 3
   _attackRadius: 1
   _stopRadius: 0.5
-  _contactDamage: 14
+  _contactDamage: 10
   _contactCooldown: 0.6
   _bodyParts:
   - {fileID: 1067295665}
@@ -60273,6 +60349,10 @@ MonoBehaviour:
   - {fileID: 324180742}
   - {fileID: 1391271016}
   _corePart: {fileID: 1067295665}
+  _dashSpeed: 16
+  _dashDuration: 0.22
+  _dashCooldown: 1.8
+  _teleportCooldown: 4.5
 --- !u!58 &873847495
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -64857,7 +64937,7 @@ MonoBehaviour:
   _detectionRadius: 3
   _attackRadius: 1
   _stopRadius: 0.5
-  _contactDamage: 14
+  _contactDamage: 10
   _contactCooldown: 0.6
   _bodyParts:
   - {fileID: 958584791}
@@ -64867,6 +64947,10 @@ MonoBehaviour:
   - {fileID: 499248001}
   - {fileID: 639802213}
   _corePart: {fileID: 958584791}
+  _dashSpeed: 16
+  _dashDuration: 0.22
+  _dashCooldown: 1.8
+  _teleportCooldown: 4.5
 --- !u!58 &937244603
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -73996,7 +74080,7 @@ MonoBehaviour:
   _detectionRadius: 3
   _attackRadius: 1
   _stopRadius: 0.5
-  _contactDamage: 14
+  _contactDamage: 10
   _contactCooldown: 0.6
   _bodyParts:
   - {fileID: 1846461713}
@@ -74006,6 +74090,10 @@ MonoBehaviour:
   - {fileID: 2080362451}
   - {fileID: 982814552}
   _corePart: {fileID: 1846461713}
+  _dashSpeed: 16
+  _dashDuration: 0.22
+  _dashCooldown: 1.8
+  _teleportCooldown: 4.5
 --- !u!58 &1067354706
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -88579,7 +88667,7 @@ MonoBehaviour:
   _detectionRadius: 3
   _attackRadius: 1
   _stopRadius: 0.5
-  _contactDamage: 14
+  _contactDamage: 10
   _contactCooldown: 0.6
   _bodyParts:
   - {fileID: 989849348}
@@ -88589,6 +88677,10 @@ MonoBehaviour:
   - {fileID: 1342328607}
   - {fileID: 1824950208}
   _corePart: {fileID: 989849348}
+  _dashSpeed: 16
+  _dashDuration: 0.22
+  _dashCooldown: 1.8
+  _teleportCooldown: 4.5
 --- !u!58 &1266498943
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -113118,7 +113210,7 @@ MonoBehaviour:
   _detectionRadius: 3
   _attackRadius: 1
   _stopRadius: 0.5
-  _contactDamage: 14
+  _contactDamage: 10
   _contactCooldown: 0.6
   _bodyParts:
   - {fileID: 1028452857}
@@ -113128,6 +113220,10 @@ MonoBehaviour:
   - {fileID: 1894157010}
   - {fileID: 1141679004}
   _corePart: {fileID: 1028452857}
+  _dashSpeed: 16
+  _dashDuration: 0.22
+  _dashCooldown: 1.8
+  _teleportCooldown: 4.5
 --- !u!58 &1661474201
 CircleCollider2D:
   m_ObjectHideFlags: 0

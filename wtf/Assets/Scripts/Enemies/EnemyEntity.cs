@@ -45,11 +45,25 @@ namespace AsciiActionGame.Enemies
         private Vector2 _moveVelocity;
         private float _stateTimer = 0f;
         private float _lastContactDamageTime = -999f;
+        [Header("Tactical Evasion & Teleport")]
+        [SerializeField] private float _dashSpeed = 16.0f;
+        [SerializeField] private float _dashDuration = 0.22f;
+        [SerializeField] private float _dashCooldown = 1.8f;
+        [SerializeField] private float _teleportCooldown = 4.5f;
+
+        private bool _isDashing = false;
+        private float _dashTimer = 0f;
+        private float _lastDashTime = -999f;
+        private float _lastTeleportTime = -999f;
+        private Vector2 _dashDirection = Vector2.zero;
 
         public EnemyState CurrentState => _currentState;
         public Vector2 Position => _rb != null ? _rb.position : (Vector2)transform.position;
         public Vector2 FacingDirection => _facingDirection;
         public bool IsDead => _currentState == EnemyState.Dead;
+        public bool IsDashing => _isDashing;
+        public bool CanDash => !_isDashing && _currentState != EnemyState.Dead && Time.time >= _lastDashTime + _dashCooldown;
+        public bool CanTeleport => !_isDashing && _currentState != EnemyState.Dead && Time.time >= _lastTeleportTime + _teleportCooldown;
         public IReadOnlyList<EnemyBodyPart> BodyParts => _bodyParts;
         public EnemyBodyPart CorePart => _corePart;
 
@@ -99,6 +113,20 @@ namespace AsciiActionGame.Enemies
             {
                 _rb.linearVelocity = Vector2.zero;
                 return;
+            }
+
+            if (_isDashing)
+            {
+                _dashTimer -= Time.fixedDeltaTime;
+                if (_dashTimer <= 0f)
+                {
+                    _isDashing = false;
+                }
+                else
+                {
+                    _rb.linearVelocity = _dashDirection * _dashSpeed;
+                    return;
+                }
             }
 
             ApplyMovementPhysics();
@@ -328,8 +356,54 @@ namespace AsciiActionGame.Enemies
             }
         }
 
+        public void PerformDodgeDash(Vector2 direction)
+        {
+            if (_currentState == EnemyState.Dead || !CanDash) return;
+
+            _isDashing = true;
+            _dashTimer = _dashDuration;
+            _lastDashTime = Time.time;
+            _dashDirection = direction.normalized;
+            if (_dashDirection.sqrMagnitude < 0.01f)
+            {
+                _dashDirection = UnityEngine.Random.insideUnitCircle.normalized;
+            }
+
+            _rb.linearVelocity = _dashDirection * _dashSpeed;
+            DisintegrationEffect.TriggerBurst(Position, 10, new Color32(40, 240, 255, 255), 4.5f, 0.25f);
+            AsciiPostProcessing.TriggerScreenShake(0.08f);
+        }
+
+        public void PerformTeleportBehind(Transform targetPlayer)
+        {
+            if (_currentState == EnemyState.Dead || !CanTeleport || targetPlayer == null) return;
+
+            _lastTeleportTime = Time.time;
+
+            DisintegrationEffect.TriggerBurst(Position, 24, new Color32(180, 50, 255, 255), 5.5f, 0.35f);
+            AsciiPostProcessing.TriggerGlitch(0.12f, 0.7f);
+            AsciiPostProcessing.TriggerScreenShake(0.12f);
+
+            var playerCtrl = targetPlayer.GetComponent<PlayerController>();
+            Vector2 playerAim = playerCtrl != null ? playerCtrl.AimDirection.normalized : Vector2.right;
+            Vector2 behindPos = (Vector2)targetPlayer.position - (playerAim * 2.4f);
+
+            _rb.position = behindPos;
+            transform.position = behindPos;
+            _rb.linearVelocity = Vector2.zero;
+            _facingDirection = playerAim;
+
+            DisintegrationEffect.TriggerBurst(behindPos, 24, new Color32(0, 255, 220, 255), 5.5f, 0.35f);
+        }
+
         public void TakeDamage(DamageInfo info)
         {
+            if (_isDashing)
+            {
+                DisintegrationEffect.TriggerBurst(info.HitPoint, 4, new Color32(0, 255, 255, 255), 2.5f, 0.2f);
+                return;
+            }
+
             EnemyBodyPart part = GetClosestActiveBodyPart(info.HitPoint);
             if (part != null)
             {

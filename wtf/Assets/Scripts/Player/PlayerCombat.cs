@@ -1,9 +1,7 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using AsciiActionGame.Weapons;
 using AsciiActionGame.Enemies;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 namespace AsciiActionGame.Player
 {
@@ -84,21 +82,23 @@ namespace AsciiActionGame.Player
             bool firePressed = false;
             bool throwPressed = false;
 
-#if ENABLE_INPUT_SYSTEM
             if (Mouse.current != null)
             {
                 if (Mouse.current.leftButton.isPressed) firePressed = true;
                 if (Mouse.current.rightButton.wasPressedThisFrame) throwPressed = true;
             }
+
             if (Keyboard.current != null)
             {
                 if (Keyboard.current.spaceKey.isPressed) firePressed = true;
                 if (Keyboard.current.eKey.wasPressedThisFrame || Keyboard.current.qKey.wasPressedThisFrame) throwPressed = true;
             }
-#else
-            if (Input.GetMouseButton(0) || Input.GetKey(KeyCode.Space)) firePressed = true;
-            if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Q)) throwPressed = true;
-#endif
+
+            if (Gamepad.current != null)
+            {
+                if (Gamepad.current.rightTrigger.isPressed || Gamepad.current.buttonSouth.isPressed) firePressed = true;
+                if (Gamepad.current.leftTrigger.wasPressedThisFrame || Gamepad.current.buttonWest.wasPressedThisFrame) throwPressed = true;
+            }
 
             _isFireInputHeld = firePressed;
             _isThrowInputPressed = throwPressed;

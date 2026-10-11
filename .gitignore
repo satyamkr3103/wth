@@ -72,3 +72,10 @@ crashlytics-build.properties
 ehthumbs.db
 Thumbs.db
 [Dd]esktop.ini
+
+# API Keys and Secrets
+*api_key*
+*google_ai_key*
+*.key
+.env
+

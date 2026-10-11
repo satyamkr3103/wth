@@ -13,7 +13,9 @@ namespace AsciiActionGame.AI
         Retreat,
         SacrificeLimb,
         Ambush,
-        Reposition
+        Reposition,
+        DodgeDash,
+        TeleportBehind
     }
 
     [Serializable]
