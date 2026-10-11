@@ -17,10 +17,10 @@ MonoBehaviour:
     rgba: 4278190080
   GroundPrimary:
     serializedVersion: 2
-    rgba: 4281172551
+    rgba: 4279199530
   GroundSecondary:
     serializedVersion: 2
-    rgba: 4279733307
+    rgba: 4279529264
   PathDirt:
     serializedVersion: 2
     rgba: 4280954930
@@ -56,13 +56,13 @@ MonoBehaviour:
     rgba: 4294947920
   PlayerPrimary:
     serializedVersion: 2
-    rgba: 4294963200
+    rgba: 4278190080
   PlayerSecondary:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4278190080
   PlayerTrail:
     serializedVersion: 2
-    rgba: 3031731200
+    rgba: 3036667648
   EnemyCore:
     serializedVersion: 2
     rgba: 4283446015

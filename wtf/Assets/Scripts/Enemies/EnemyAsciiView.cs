@@ -96,7 +96,7 @@ namespace AsciiActionGame.Enemies
                     return;
                 }
 
-                RenderIntactBodyParts(renderer);
+                RenderBigEnemyCombatMech(renderer);
             }
         }
 
@@ -132,8 +132,8 @@ namespace AsciiActionGame.Enemies
             if (frame == null) return;
 
             Vector2 centerPos = _enemy.Position;
-            float cellW = renderer.CellWidth > 0f ? renderer.CellWidth : 0.22f;
-            float cellH = renderer.CellHeight > 0f ? renderer.CellHeight : 0.22f;
+            float cellW = renderer.CellWidth > 0f ? renderer.CellWidth : 0.25f;
+            float cellH = renderer.CellHeight > 0f ? renderer.CellHeight : 0.25f;
 
             int halfW = frame.Width / 2;
             int halfH = frame.Height / 2;
@@ -174,61 +174,120 @@ namespace AsciiActionGame.Enemies
             }
         }
 
-        private void RenderIntactBodyParts(IAsciiRenderer renderer)
+        /// <summary>
+        /// Renders a menacing 22-character heavy combat battle mech whose visual armor,
+        /// weapons, and treads accurately reflect modular limb damage and sacrifice.
+        /// </summary>
+        private void RenderBigEnemyCombatMech(IAsciiRenderer renderer)
         {
             Vector2 enemyPos = _enemy.Position;
-            Vector2 facing = _enemy.FacingDirection.sqrMagnitude > 0.01f ? _enemy.FacingDirection.normalized : Vector2.up;
+            float cellW = renderer.CellWidth > 0f ? renderer.CellWidth : 0.25f;
+            float cellH = renderer.CellHeight > 0f ? renderer.CellHeight : 0.25f;
 
-            float cellW = renderer.CellWidth > 0f ? renderer.CellWidth : 0.22f;
-            float cellH = renderer.CellHeight > 0f ? renderer.CellHeight : 0.22f;
+            bool hasCore = false, hasChest = false, hasLeftArm = false, hasRightArm = false, hasLeftLeg = false, hasRightLeg = false;
+            bool coreFlash = false, chestFlash = false, leftArmFlash = false, rightArmFlash = false, leftLegFlash = false, rightLegFlash = false;
 
             foreach (var part in _enemy.BodyParts)
             {
                 if (part == null || !part.IsActivePart) continue;
-
-                Vector2 partWorldPos = part.GetWorldPosition(enemyPos, facing);
-                Color32 color = GetPartColor(part.PartType);
-                int layer = GetPartLayer(part.PartType);
-
-                if (part.Damageable != null && part.Damageable.IsFlashing)
-                {
-                    color = _flashColor;
-                }
+                bool flashing = part.Damageable != null && part.Damageable.IsFlashing;
 
                 switch (part.PartType)
                 {
                     case BodyPartType.Core:
-                        renderer.DrawWorldGlyph(partWorldPos, 'X', color, Color.clear, layer + 2);
-                        renderer.DrawWorldGlyph(partWorldPos + new Vector2(-cellW * 0.9f, 0f), '[', color, Color.clear, layer + 1);
-                        renderer.DrawWorldGlyph(partWorldPos + new Vector2(cellW * 0.9f, 0f), ']', color, Color.clear, layer + 1);
+                        hasCore = true;
+                        coreFlash = flashing;
                         break;
-
                     case BodyPartType.ChestArmor:
-                        renderer.DrawWorldGlyph(partWorldPos, '#', color, Color.clear, layer + 1);
-                        renderer.DrawWorldGlyph(partWorldPos + new Vector2(-cellW * 0.8f, 0f), '#', color, Color.clear, layer);
-                        renderer.DrawWorldGlyph(partWorldPos + new Vector2(cellW * 0.8f, 0f), '#', color, Color.clear, layer);
+                        hasChest = true;
+                        chestFlash = flashing;
                         break;
-
                     case BodyPartType.LeftArm:
-                        renderer.DrawWorldGlyph(partWorldPos, '{', color, Color.clear, layer + 1);
-                        renderer.DrawWorldGlyph(partWorldPos + new Vector2(cellW * 0.7f, 0f), '=', color, Color.clear, layer);
+                        hasLeftArm = true;
+                        leftArmFlash = flashing;
                         break;
-
                     case BodyPartType.RightArm:
-                        renderer.DrawWorldGlyph(partWorldPos, '}', color, Color.clear, layer + 1);
-                        renderer.DrawWorldGlyph(partWorldPos + new Vector2(-cellW * 0.7f, 0f), '=', color, Color.clear, layer);
+                        hasRightArm = true;
+                        rightArmFlash = flashing;
                         break;
-
                     case BodyPartType.LeftLeg:
-                    case BodyPartType.RightLeg:
-                        renderer.DrawWorldGlyph(partWorldPos, '|', color, Color.clear, layer);
-                        renderer.DrawWorldGlyph(partWorldPos + new Vector2(0f, -cellH * 0.7f), '/', color, Color.clear, layer);
+                        hasLeftLeg = true;
+                        leftLegFlash = flashing;
                         break;
-
-                    default:
-                        renderer.DrawWorldGlyph(partWorldPos, part.Glyph, color, Color.clear, layer);
+                    case BodyPartType.RightLeg:
+                        hasRightLeg = true;
+                        rightLegFlash = flashing;
                         break;
                 }
+            }
+
+            Color32 coreColor = coreFlash ? _flashColor : _palette.EnemyCore;
+            Color32 chestColor = chestFlash ? _flashColor : _palette.EnemyArmor;
+            Color32 leftArmColor = leftArmFlash ? _flashColor : _palette.EnemyLimb;
+            Color32 rightArmColor = rightArmFlash ? _flashColor : _palette.EnemyLimb;
+            Color32 leftLegColor = leftLegFlash ? _flashColor : _palette.EnemyLimb;
+            Color32 rightLegColor = rightLegFlash ? _flashColor : _palette.EnemyLimb;
+
+            void Put(float dx, float dy, char glyph, Color32 color, int layer)
+            {
+                renderer.DrawWorldGlyph(
+                    enemyPos + new Vector2(dx * cellW, dy * cellH),
+                    glyph,
+                    color,
+                    Color.clear,
+                    layer
+                );
+            }
+
+            // === ROW +2: Heavy Threat Cowl & Targeting Horns (5 chars) ===
+            if (hasLeftArm)   Put(-2f, 2f, '<', leftArmColor, GameConstants.LAYER_ENEMY_LIMB);
+            if (hasChest)     Put(-1f, 2f, '[', chestColor, GameConstants.LAYER_ENEMY_ARMOR);
+            if (hasCore)      Put( 0f, 2f, 'X', coreColor, GameConstants.LAYER_ENEMY_CORE + 1); // Threat eye
+            if (hasChest)     Put( 1f, 2f, ']', chestColor, GameConstants.LAYER_ENEMY_ARMOR);
+            if (hasRightArm)  Put( 2f, 2f, '>', rightArmColor, GameConstants.LAYER_ENEMY_LIMB);
+
+            // === ROW +1: Armored Torso & Shoulder Cannons (5 chars) ===
+            if (hasLeftArm)   Put(-2f, 1f, '{', leftArmColor, GameConstants.LAYER_ENEMY_LIMB + 1);
+            if (hasChest)     Put(-1f, 1f, '#', chestColor, GameConstants.LAYER_ENEMY_ARMOR);
+            if (hasChest)     Put( 0f, 1f, '%', chestColor, GameConstants.LAYER_ENEMY_ARMOR + 1);
+            if (hasChest)     Put( 1f, 1f, '#', chestColor, GameConstants.LAYER_ENEMY_ARMOR);
+            if (hasRightArm)  Put( 2f, 1f, '}', rightArmColor, GameConstants.LAYER_ENEMY_LIMB + 1);
+
+            // === ROW 0: Reactor Core & Battle Pincers (5 chars) ===
+            if (hasLeftArm)   Put(-2f, 0f, '/', leftArmColor, GameConstants.LAYER_ENEMY_LIMB);
+            if (hasChest)     Put(-1f, 0f, '[', chestColor, GameConstants.LAYER_ENEMY_ARMOR);
+            if (hasCore)
+            {
+                char coreG = (Mathf.Sin(Time.time * 8f) > 0f) ? '*' : '#';
+                Put(0f, 0f, coreG, coreColor, GameConstants.LAYER_ENEMY_CORE + 2); // Pulsing core
+            }
+            if (hasChest)     Put( 1f, 0f, ']', chestColor, GameConstants.LAYER_ENEMY_ARMOR);
+            if (hasRightArm)  Put( 2f, 0f, '\\', rightArmColor, GameConstants.LAYER_ENEMY_LIMB);
+
+            // === ROW -1: Reinforced Pelvis & Chassis (3 chars) ===
+            if (hasChest)
+            {
+                Put(-1f, -1f, '/', chestColor, GameConstants.LAYER_ENEMY_ARMOR);
+                Put( 0f, -1f, '#', chestColor, GameConstants.LAYER_ENEMY_ARMOR);
+                Put( 1f, -1f, '\\', chestColor, GameConstants.LAYER_ENEMY_ARMOR);
+            }
+
+            // === ROW -2: Hydraulic Struts / Heavy Treads (4 chars) ===
+            if (hasLeftLeg)
+            {
+                Put(-2f, -2f, '[', leftLegColor, GameConstants.LAYER_ENEMY_LIMB);
+                Put(-1f, -2f, '|', leftLegColor, GameConstants.LAYER_ENEMY_LIMB);
+            }
+            if (hasRightLeg)
+            {
+                Put( 1f, -2f, '|', rightLegColor, GameConstants.LAYER_ENEMY_LIMB);
+                Put( 2f, -2f, ']', rightLegColor, GameConstants.LAYER_ENEMY_LIMB);
+            }
+
+            // Attack flash when telegraphing
+            if (_attackTimer > 0f)
+            {
+                Put(0f, 3f, '!', Color.yellow, GameConstants.LAYER_VFX_PARTICLES);
             }
         }
 
@@ -249,40 +308,6 @@ namespace AsciiActionGame.Enemies
 
                 char g = scatterGlyphs[(i + Mathf.FloorToInt(_deathTimer * 10f)) % scatterGlyphs.Length];
                 renderer.DrawWorldGlyph(pos + offset, g, debrisColor, Color.clear, GameConstants.LAYER_VFX_PARTICLES);
-            }
-        }
-
-        private Color32 GetPartColor(BodyPartType type)
-        {
-            switch (type)
-            {
-                case BodyPartType.Core:
-                    return _palette.EnemyCore;
-                case BodyPartType.ChestArmor:
-                    return _palette.EnemyArmor;
-                case BodyPartType.LeftArm:
-                case BodyPartType.RightArm:
-                case BodyPartType.LeftLeg:
-                case BodyPartType.RightLeg:
-                default:
-                    return _palette.EnemyLimb;
-            }
-        }
-
-        private int GetPartLayer(BodyPartType type)
-        {
-            switch (type)
-            {
-                case BodyPartType.Core:
-                    return GameConstants.LAYER_ENEMY_CORE;
-                case BodyPartType.ChestArmor:
-                    return GameConstants.LAYER_ENEMY_ARMOR;
-                case BodyPartType.LeftArm:
-                case BodyPartType.RightArm:
-                case BodyPartType.LeftLeg:
-                case BodyPartType.RightLeg:
-                default:
-                    return GameConstants.LAYER_ENEMY_LIMB;
             }
         }
     }

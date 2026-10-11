@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using AsciiActionGame.Combat;
 using AsciiActionGame.Core;
@@ -10,47 +11,55 @@ namespace AsciiActionGame.Enemies
     [RequireComponent(typeof(EnemyEntity))]
     public class LimbSacrificeAction : MonoBehaviour
     {
-        [Header("Fragmentation Tuning")]
-        [Tooltip("Number of shrapnel fragments spawned when a limb is sacrificed (4 to 5).")]
-        [Range(4, 8)]
-        [SerializeField] private int _fragmentsPerLimb = 5;
-
-        [Tooltip("Spread angle in degrees for the fragment cone.")]
-        [SerializeField] private float _spreadAngleDegrees = 42f;
-
-        [SerializeField] private float _fragmentSpeed = 9.5f;
-        [SerializeField] private float _fragmentDamage = 16f;
-        [SerializeField] private float _fragmentLifetime = 2.2f;
-
-        [Header("Tactical Trigger Conditions")]
+        [Header("Tactical Limb Launch Settings")]
         [SerializeField] private bool _autoTrigger = true;
-        [Tooltip("Trigger sacrifice if core health drops below this percentage.")]
-        [Range(0.1f, 0.9f)]
-        [SerializeField] private float _coreHealthTriggerThreshold = 0.5f;
+        [SerializeField] private float _initialDelay = 1.0f;
+        [SerializeField] private float _launchInterval = 2.8f;
+        [SerializeField] private float _maxTriggerDistance = 12.0f;
 
-        [Tooltip("Minimum distance to player required to execute sacrifice.")]
-        [SerializeField] private float _maxTriggerDistance = 8.0f;
+        [Header("Projectile & Blast Tuning")]
+        [SerializeField] private float _launchSpeed = 8.8f;
+        [SerializeField] private float _maxTravelDistance = 5.4f;
+        [SerializeField] private float _blastRadius = 1.4f;
+        [SerializeField] private float _blastDamage = 26.0f;
+        [SerializeField] private float _recoilImpulse = 4.2f;
 
-        [SerializeField] private float _cooldown = 3.5f;
+        [Header("Regeneration Tuning")]
+        [SerializeField] private float _limbRegenDelay = 4.5f;
 
-        [Header("Physics Recoil")]
-        [SerializeField] private float _recoilImpulse = 4.5f;
+        private class RegeneratingLimb
+        {
+            public EnemyBodyPart Part;
+            public float RegenTime;
+        }
 
         private EnemyEntity _enemy;
         private Rigidbody2D _rb;
         private Transform _playerTransform;
+        private AsciiColorPalette _palette;
+        private readonly List<RegeneratingLimb> _regenQueue = new List<RegeneratingLimb>();
         private float _lastSacrificeTime = -999f;
+        private float _startTime = 0f;
 
         public event Action<EnemyBodyPart, int> OnLimbSacrificed;
-        public event Action<string> OnCyberTacticalDialogue;
 
         private void Awake()
         {
             _enemy = GetComponent<EnemyEntity>();
             _rb = GetComponent<Rigidbody2D>();
+            _startTime = Time.time;
         }
 
         private void Start()
+        {
+            FindPlayer();
+
+            var map = FindFirstObjectByType<World.AsciiWorldMap>();
+            if (map != null) _palette = map.Palette;
+            if (_palette == null) _palette = AsciiColorPalette.CreateDefault();
+        }
+
+        private void FindPlayer()
         {
             var player = FindFirstObjectByType<PlayerController>();
             if (player != null)
@@ -61,31 +70,40 @@ namespace AsciiActionGame.Enemies
 
         private void Update()
         {
-            if (!_autoTrigger || _enemy.IsDead) return;
+            UpdateRegenerationQueue();
 
-            if (Time.time < _lastSacrificeTime + _cooldown) return;
+            if (!_autoTrigger || _enemy == null || _enemy.IsDead) return;
 
-            CheckAutonomousTrigger();
-        }
-
-        private void CheckAutonomousTrigger()
-        {
             if (_playerTransform == null)
             {
-                var player = FindFirstObjectByType<PlayerController>();
-                if (player != null) _playerTransform = player.transform;
-                else return;
+                FindPlayer();
+                if (_playerTransform == null) return;
             }
 
             float dist = Vector2.Distance(_enemy.Position, _playerTransform.position);
             if (dist > _maxTriggerDistance) return;
 
-            if (_enemy.CorePart != null && _enemy.CorePart.Damageable != null)
+            if (Time.time < _startTime + _initialDelay) return;
+            if (Time.time < _lastSacrificeTime + _launchInterval) return;
+
+            if (CanSacrificeLimb())
             {
-                float coreRatio = _enemy.CorePart.Damageable.CurrentHealth / _enemy.CorePart.Damageable.MaxHealth;
-                if (coreRatio <= _coreHealthTriggerThreshold && CanSacrificeLimb())
+                ExecuteSacrifice();
+            }
+        }
+
+        private void UpdateRegenerationQueue()
+        {
+            for (int i = _regenQueue.Count - 1; i >= 0; i--)
+            {
+                if (Time.time >= _regenQueue[i].RegenTime)
                 {
-                    ExecuteSacrifice();
+                    var part = _regenQueue[i].Part;
+                    _regenQueue.RemoveAt(i);
+                    if (part != null && !part.IsSeveredByPlayer)
+                    {
+                        part.Regenerate();
+                    }
                 }
             }
         }
@@ -97,21 +115,53 @@ namespace AsciiActionGame.Enemies
 
         public EnemyBodyPart GetNextSacrificableLimb()
         {
-            var leftArm = _enemy.GetBodyPart(BodyPartType.LeftArm);
-            if (leftArm != null && leftArm.IsActivePart) return leftArm;
+            if (_playerTransform == null) FindPlayer();
 
-            var rightArm = _enemy.GetBodyPart(BodyPartType.RightArm);
-            if (rightArm != null && rightArm.IsActivePart) return rightArm;
+            bool playerOnLeft = _playerTransform != null && _playerTransform.position.x < _enemy.Position.x;
+            return GetNextLimbToLaunch(playerOnLeft);
+        }
 
-            var armor = _enemy.GetBodyPart(BodyPartType.ChestArmor);
-            if (armor != null && armor.IsActivePart) return armor;
+        public EnemyBodyPart GetNextLimbToLaunch(bool playerOnLeft)
+        {
+            BodyPartType[] priorityOrder;
+            if (playerOnLeft)
+            {
+                priorityOrder = new BodyPartType[]
+                {
+                    BodyPartType.ChestArmor,
+                    BodyPartType.LeftArm,
+                    BodyPartType.RightArm,
+                    BodyPartType.LeftLeg,
+                    BodyPartType.RightLeg
+                };
+            }
+            else
+            {
+                priorityOrder = new BodyPartType[]
+                {
+                    BodyPartType.ChestArmor,
+                    BodyPartType.RightArm,
+                    BodyPartType.LeftArm,
+                    BodyPartType.RightLeg,
+                    BodyPartType.LeftLeg
+                };
+            }
+
+            foreach (var type in priorityOrder)
+            {
+                var part = _enemy.GetBodyPart(type);
+                if (part != null && part.IsActivePart)
+                {
+                    return part;
+                }
+            }
 
             return null;
         }
 
         public bool ExecuteSacrifice(BodyPartType? specificPart = null, Vector2? customDirection = null)
         {
-            if (_enemy.IsDead) return false;
+            if (_enemy == null || _enemy.IsDead) return false;
 
             EnemyBodyPart partToSacrifice = null;
 
@@ -145,56 +195,78 @@ namespace AsciiActionGame.Enemies
                 aimDir = _enemy.FacingDirection;
             }
 
-            partToSacrifice.Detach(-aimDir * 2f);
+            partToSacrifice.Detach(-aimDir * 1.5f);
 
-            SpawnFragmentFan(origin, aimDir, _fragmentsPerLimb);
+            SpawnLaunchedBodyPart(partToSacrifice.PartType, origin, aimDir);
+
+            _regenQueue.Add(new RegeneratingLimb
+            {
+                Part = partToSacrifice,
+                RegenTime = Time.time + _limbRegenDelay
+            });
 
             if (_rb != null)
             {
                 _rb.AddForce(-aimDir * _recoilImpulse, ForceMode2D.Impulse);
             }
 
-            string dialogue = $"ERR: RECONFIGURING {partToSacrifice.PartType.ToString().ToUpper()} TO SHRAPNEL CLUSTER.";
-            OnCyberTacticalDialogue?.Invoke(dialogue);
-            Debug.Log($"[LimbSacrificeAction] {dialogue}");
+            _enemy.GetComponent<EnemyAsciiView>()?.TriggerAttack();
 
-            AsciiActionGame.Rendering.AsciiPostProcessing.TriggerScreenShake(0.35f);
-            AsciiActionGame.Rendering.AsciiPostProcessing.TriggerGlitch(0.12f, 0.7f);
+            AsciiActionGame.Rendering.AsciiPostProcessing.TriggerScreenShake(0.28f);
+            AsciiActionGame.Rendering.AsciiPostProcessing.TriggerGlitch(0.12f, 0.65f);
 
-            OnLimbSacrificed?.Invoke(partToSacrifice, _fragmentsPerLimb);
+            OnLimbSacrificed?.Invoke(partToSacrifice, 1);
             return true;
         }
 
-        private void SpawnFragmentFan(Vector2 origin, Vector2 centerDirection, int count)
+        private void SpawnLaunchedBodyPart(BodyPartType partType, Vector2 origin, Vector2 direction)
         {
-            if (FragmentPool.Instance == null)
+            GameObject obj = new GameObject($"Launched_{partType}");
+            obj.AddComponent<Rigidbody2D>();
+            obj.AddComponent<CircleCollider2D>();
+            var launched = obj.AddComponent<LaunchedBodyPart>();
+
+            Color32 col = GetPartColor(partType);
+            float travelDistance = _maxTravelDistance;
+            if (_playerTransform != null)
             {
-                var poolObj = new GameObject("FragmentPool");
-                poolObj.AddComponent<FragmentPool>();
+                float targetDist = Vector2.Distance(origin, _playerTransform.position);
+                travelDistance = Mathf.Clamp(targetDist + 0.6f, 3.5f, _maxTravelDistance);
             }
 
-            float baseAngle = Mathf.Atan2(centerDirection.y, centerDirection.x) * Mathf.Rad2Deg;
-            float halfSpread = _spreadAngleDegrees * 0.5f;
+            launched.Initialize(
+                origin,
+                direction,
+                _launchSpeed,
+                travelDistance,
+                _blastRadius,
+                _blastDamage,
+                partType,
+                col,
+                gameObject
+            );
+        }
 
-            for (int i = 0; i < count; i++)
+        private Color32 GetPartColor(BodyPartType type)
+        {
+            if (_palette == null)
             {
-                float t = count > 1 ? (float)i / (count - 1) : 0.5f;
-                float angleOffset = Mathf.Lerp(-halfSpread, halfSpread, t) + UnityEngine.Random.Range(-3f, 3f);
-                float finalAngle = (baseAngle + angleOffset) * Mathf.Deg2Rad;
+                var map = FindFirstObjectByType<World.AsciiWorldMap>();
+                if (map != null) _palette = map.Palette;
+                if (_palette == null) _palette = AsciiColorPalette.CreateDefault();
+            }
 
-                Vector2 launchDir = new Vector2(Mathf.Cos(finalAngle), Mathf.Sin(finalAngle));
-                float speed = _fragmentSpeed * UnityEngine.Random.Range(0.88f, 1.15f);
-                Vector2 velocity = launchDir * speed;
-
-                FragmentPool.Instance.Spawn(
-                    origin,
-                    velocity,
-                    _fragmentDamage,
-                    _fragmentLifetime,
-                    gameObject,
-                    null,
-                    GameConstants.GLYPH_FRAGMENT
-                );
+            switch (type)
+            {
+                case BodyPartType.ChestArmor:
+                    return _palette.EnemyArmor;
+                case BodyPartType.LeftArm:
+                case BodyPartType.RightArm:
+                case BodyPartType.LeftLeg:
+                case BodyPartType.RightLeg:
+                    return _palette.EnemyLimb;
+                default:
+                    return _palette.EnemyCore;
             }
         }
     }

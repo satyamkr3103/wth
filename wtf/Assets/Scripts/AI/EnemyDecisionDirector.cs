@@ -1,31 +1,26 @@
 using System;
 using UnityEngine;
+using AsciiActionGame.Core;
 using AsciiActionGame.Enemies;
 using AsciiActionGame.Rendering;
-using AsciiActionGame.Core;
 
 namespace AsciiActionGame.AI
 {
-    public enum AIMode
-    {
-        ScriptedBaseline,
-        GemmaStrategic,
-        MLAgentsReflex,
-        HybridGemmaPlusReflex
-    }
-
-    [RequireComponent(typeof(EnemyEntity))]
     public class EnemyDecisionDirector : MonoBehaviour
     {
+        public enum AIMode
+        {
+            ScriptedBaseline,
+            MLAgentsReflex,
+            GemmaStrategic,
+            HybridGemmaPlusReflex
+        }
+
         [Header("AI Orchestration Mode")]
         [SerializeField] private AIMode _aiMode = AIMode.HybridGemmaPlusReflex;
 
         [Header("Macro Decision Interval")]
         [SerializeField] private float _macroDecisionInterval = 1.8f;
-
-        [Header("Dialogue HUD")]
-        [SerializeField] private bool _renderAsciiDialogueBark = true;
-        [SerializeField] private float _barkDuration = 2.5f;
 
         private EnemyEntity _enemy;
         private Rigidbody2D _rb;
@@ -36,13 +31,8 @@ namespace AsciiActionGame.AI
 
         private AIDecisionResult _latestMacroDecision;
         private float _macroTimer = 0f;
-        private string _activeBarkText = "";
-        private float _barkTimer = 0f;
 
         public AIMode ActiveAIMode => _aiMode;
-        public string ActiveBarkText => _activeBarkText;
-
-        public event Action<string> OnCyberDialogueBroadcast;
 
         private void Awake()
         {
@@ -53,22 +43,6 @@ namespace AsciiActionGame.AI
             SetupDecisionEngines();
         }
 
-        private void OnEnable()
-        {
-            if (_renderAsciiDialogueBark)
-            {
-                AsciiGridRenderer.OnRenderDynamicEntities += RenderDialogueBark;
-            }
-        }
-
-        private void OnDisable()
-        {
-            if (_renderAsciiDialogueBark)
-            {
-                AsciiGridRenderer.OnRenderDynamicEntities -= RenderDialogueBark;
-            }
-        }
-
         private void SetupDecisionEngines()
         {
             var gemma = GetComponent<GemmaEnemyAI>();
@@ -77,7 +51,6 @@ namespace AsciiActionGame.AI
                 gemma = gameObject.AddComponent<GemmaEnemyAI>();
             }
             gemma.Initialize(_enemy);
-            gemma.OnGemmaDialogueReceived += HandleDialogueReceived;
 
             _macroDecisionMaker = gemma;
 
@@ -91,18 +64,9 @@ namespace AsciiActionGame.AI
 
         private void Update()
         {
-            if (_enemy.IsDead) return;
+            if (_enemy == null || _enemy.IsDead) return;
 
             float dt = Time.deltaTime;
-
-            if (_barkTimer > 0f)
-            {
-                _barkTimer -= dt;
-                if (_barkTimer <= 0f)
-                {
-                    _activeBarkText = "";
-                }
-            }
 
             if (_macroDecisionMaker != null) _macroDecisionMaker.Tick(dt);
             if (_reflexAgent != null) _reflexAgent.Tick(dt);
@@ -156,11 +120,6 @@ namespace AsciiActionGame.AI
 
                 _sacrificeAction.ExecuteSacrifice(partType, _latestMacroDecision.desired_aim_direction);
             }
-
-            if (!string.IsNullOrEmpty(_latestMacroDecision.dialogue))
-            {
-                SetDialogueBark(_latestMacroDecision.dialogue);
-            }
         }
 
         private void ApplyMicroReflexes()
@@ -211,37 +170,6 @@ namespace AsciiActionGame.AI
                 enemy_position = _enemy.Position,
                 player_position = playerPos
             };
-        }
-
-        private void HandleDialogueReceived(string dialogue)
-        {
-            SetDialogueBark(dialogue);
-        }
-
-        public void SetDialogueBark(string bark)
-        {
-            _activeBarkText = bark;
-            _barkTimer = _barkDuration;
-            OnCyberDialogueBroadcast?.Invoke(bark);
-        }
-
-        private void RenderDialogueBark(IAsciiRenderer renderer)
-        {
-            if (string.IsNullOrEmpty(_activeBarkText) || _enemy.IsDead) return;
-
-            Vector2 barkPos = _enemy.Position + new Vector2(-(_activeBarkText.Length * 0.15f), 1.1f);
-            Color32 barkColor = new Color32(0, 240, 255, 255);
-
-            for (int i = 0; i < _activeBarkText.Length && i < 28; i++)
-            {
-                renderer.DrawWorldGlyph(
-                    barkPos + new Vector2(i * 0.35f, 0f),
-                    _activeBarkText[i],
-                    barkColor,
-                    Color.clear,
-                    GameConstants.LAYER_UI_OVERLAY
-                );
-            }
         }
     }
 }

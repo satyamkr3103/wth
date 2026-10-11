@@ -5,6 +5,7 @@ using AsciiActionGame.Player;
 using AsciiActionGame.CameraControl;
 using AsciiActionGame.Weapons;
 using AsciiActionGame.Projectiles;
+using AsciiActionGame.Combat;
 
 namespace AsciiActionGame.Core
 {
@@ -28,6 +29,16 @@ namespace AsciiActionGame.Core
             if (_renderer == null) _renderer = FindFirstObjectByType<AsciiGridRenderer>();
             if (_player == null) _player = FindFirstObjectByType<PlayerController>();
             if (_cameraFollow == null) _cameraFollow = FindFirstObjectByType<SmoothFollowCamera>();
+
+            if (_player != null)
+            {
+                var dmg = _player.GetComponent<Damageable>();
+                if (dmg == null)
+                {
+                    dmg = _player.gameObject.AddComponent<Damageable>();
+                    dmg.Initialize(100f, 0f);
+                }
+            }
 
             if (_cameraFollow != null && _player != null && _cameraFollow.Target == null)
             {
@@ -65,7 +76,11 @@ namespace AsciiActionGame.Core
                 postObj.AddComponent<AsciiPostProcessing>();
             }
 
-            Debug.Log("[GameBootstrapper] ASCII Game Phase 1, 2, 3, and 4 initialized successfully.");
+            if (FindFirstObjectByType<AsciiCombatHud>() == null)
+            {
+                var hudObj = new GameObject("AsciiCombatHud");
+                hudObj.AddComponent<AsciiCombatHud>();
+            }
         }
     }
 }

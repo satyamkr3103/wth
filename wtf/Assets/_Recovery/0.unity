@@ -84388,7 +84388,7 @@ MonoBehaviour:
   _matchCameraViewport: 1
   _cellWidth: 0.35
   _cellHeight: 0.55
-  _glyphAspect: 0.65
+  _glyphAspect: 0.86
   _glyphScale: 0.92
   _fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   _worldMap: {fileID: 0}

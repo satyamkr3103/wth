@@ -19,7 +19,7 @@ namespace AsciiActionGame.Enemies
     }
 
     [RequireComponent(typeof(Rigidbody2D))]
-    public class EnemyEntity : MonoBehaviour
+    public class EnemyEntity : MonoBehaviour, IDamageable
     {
         [Header("State")]
         [SerializeField] private EnemyState _currentState = EnemyState.Idle;
@@ -31,6 +31,10 @@ namespace AsciiActionGame.Enemies
         [SerializeField] private float _attackRadius = 4.0f;
         [SerializeField] private float _stopRadius = 2.0f;
 
+        [Header("Contact Damage")]
+        [SerializeField] private float _contactDamage = 14f;
+        [SerializeField] private float _contactCooldown = 0.6f;
+
         [Header("Body Hierarchy")]
         [SerializeField] private List<EnemyBodyPart> _bodyParts = new List<EnemyBodyPart>();
         [SerializeField] private EnemyBodyPart _corePart;
@@ -40,6 +44,7 @@ namespace AsciiActionGame.Enemies
         private Vector2 _facingDirection = Vector2.down;
         private Vector2 _moveVelocity;
         private float _stateTimer = 0f;
+        private float _lastContactDamageTime = -999f;
 
         public EnemyState CurrentState => _currentState;
         public Vector2 Position => _rb != null ? _rb.position : (Vector2)transform.position;
@@ -48,9 +53,17 @@ namespace AsciiActionGame.Enemies
         public IReadOnlyList<EnemyBodyPart> BodyParts => _bodyParts;
         public EnemyBodyPart CorePart => _corePart;
 
+        public float CurrentHealth => _corePart != null && _corePart.Damageable != null ? _corePart.Damageable.CurrentHealth : 0f;
+        public float MaxHealth => _corePart != null && _corePart.Damageable != null ? _corePart.Damageable.MaxHealth : 60f;
+        public float Armor => _corePart != null && _corePart.Damageable != null ? _corePart.Damageable.Armor : 0f;
+
         public event Action<EnemyState> OnStateChanged;
         public event Action<EnemyBodyPart> OnPartDestroyedEvent;
         public event Action<EnemyEntity> OnEnemyDied;
+        public event Action<DamageInfo> OnDamaged;
+        public event Action<DamageInfo> OnDied;
+        public event Action<float> OnHealed;
+        public event Action<float, float> OnHealthChanged;
 
         private void Awake()
         {
@@ -112,6 +125,37 @@ namespace AsciiActionGame.Enemies
                 {
                     _corePart = part;
                 }
+            }
+
+            if (_bodyParts.Count == 0)
+            {
+                CreateDefaultPart("Core", BodyPartType.Core, GameConstants.GLYPH_ENEMY_CORE, Vector2.zero, 60f, 0f, 0.25f);
+                CreateDefaultPart("ChestArmor", BodyPartType.ChestArmor, GameConstants.GLYPH_ENEMY_ARMOR, new Vector2(0f, 0.4f), 45f, 10f, 0.22f);
+                CreateDefaultPart("LeftArm", BodyPartType.LeftArm, GameConstants.GLYPH_ENEMY_ARM_LEFT, new Vector2(-0.5f, 0.1f), 25f, 2f, 0.2f);
+                CreateDefaultPart("RightArm", BodyPartType.RightArm, GameConstants.GLYPH_ENEMY_ARM_RIGHT, new Vector2(0.5f, 0.1f), 25f, 2f, 0.2f);
+                CreateDefaultPart("LeftLeg", BodyPartType.LeftLeg, GameConstants.GLYPH_ENEMY_LEG, new Vector2(-0.3f, -0.4f), 20f, 0f, 0.18f);
+                CreateDefaultPart("RightLeg", BodyPartType.RightLeg, GameConstants.GLYPH_ENEMY_LEG, new Vector2(0.3f, -0.4f), 20f, 0f, 0.18f);
+            }
+        }
+
+        private void CreateDefaultPart(string partName, BodyPartType type, char glyph, Vector2 offset, float health, float armor, float colRadius)
+        {
+            GameObject partObj = new GameObject(partName);
+            partObj.transform.SetParent(transform, false);
+            partObj.transform.localPosition = offset;
+
+            var col = partObj.AddComponent<CircleCollider2D>();
+            col.radius = colRadius;
+
+            var dmg = partObj.AddComponent<Damageable>();
+            var bodyPart = partObj.AddComponent<EnemyBodyPart>();
+            bodyPart.Configure(type, glyph, offset, health, armor);
+
+            _bodyParts.Add(bodyPart);
+            bodyPart.SetParentEnemy(this);
+            if (type == BodyPartType.Core)
+            {
+                _corePart = bodyPart;
             }
         }
 
@@ -202,6 +246,31 @@ namespace AsciiActionGame.Enemies
             _rb.linearVelocity = Vector2.MoveTowards(_rb.linearVelocity, targetVel, _acceleration * Time.fixedDeltaTime);
         }
 
+        private void OnCollisionStay2D(Collision2D collision)
+        {
+            CheckContactDamage(collision.collider);
+        }
+
+        private void OnTriggerStay2D(Collider2D other)
+        {
+            CheckContactDamage(other);
+        }
+
+        private void CheckContactDamage(Collider2D other)
+        {
+            if (_currentState == EnemyState.Dead) return;
+            if (Time.time < _lastContactDamageTime + _contactCooldown) return;
+
+            var player = other.GetComponent<PlayerController>() ?? other.GetComponentInParent<PlayerController>();
+            if (player != null && !player.IsDead)
+            {
+                _lastContactDamageTime = Time.time;
+                Vector2 pushDir = (player.Position - Position).normalized;
+                DamageInfo info = new DamageInfo(_contactDamage, DamageType.Kinetic, Position, pushDir, gameObject);
+                player.Damageable?.TakeDamage(info);
+            }
+        }
+
         public float CalculateCurrentMoveSpeed()
         {
             int intactLegs = 0;
@@ -245,6 +314,60 @@ namespace AsciiActionGame.Enemies
             }
         }
 
+        public void TakeDamage(DamageInfo info)
+        {
+            EnemyBodyPart part = GetClosestActiveBodyPart(info.HitPoint);
+            if (part != null)
+            {
+                part.Disappear(info.HitPoint, true);
+                var playerCombat = FindFirstObjectByType<Player.PlayerCombat>();
+                if (playerCombat != null)
+                {
+                    playerCombat.AddCollectedBodyPart();
+                }
+                OnDamaged?.Invoke(info);
+                OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            }
+            else if (_corePart != null && _corePart.IsActivePart)
+            {
+                _corePart.Damageable?.TakeDamage(info);
+                OnDamaged?.Invoke(info);
+                OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            }
+        }
+
+        public void Heal(float amount)
+        {
+            if (_corePart != null && _corePart.Damageable != null)
+            {
+                _corePart.Damageable.Heal(amount);
+                OnHealed?.Invoke(amount);
+                OnHealthChanged?.Invoke(CurrentHealth, MaxHealth);
+            }
+        }
+
+        public EnemyBodyPart GetClosestActiveBodyPart(Vector2 hitPoint)
+        {
+            EnemyBodyPart closest = null;
+            float closestDist = float.MaxValue;
+
+            foreach (var part in _bodyParts)
+            {
+                if (part != null && part.IsActivePart && part.PartType != BodyPartType.Core)
+                {
+                    Vector2 partPos = part.GetWorldPosition(Position, _facingDirection);
+                    float d = Vector2.Distance(hitPoint, partPos);
+                    if (d < closestDist)
+                    {
+                        closestDist = d;
+                        closest = part;
+                    }
+                }
+            }
+
+            return closest ?? (_corePart != null && _corePart.IsActivePart ? _corePart : null);
+        }
+
         public void Die()
         {
             if (_currentState == EnemyState.Dead) return;
@@ -267,6 +390,7 @@ namespace AsciiActionGame.Enemies
             AsciiPostProcessing.TriggerScreenShake(0.4f);
             AsciiPostProcessing.TriggerGlitch(0.18f, 0.9f);
 
+            OnDied?.Invoke(new DamageInfo(0f, DamageType.Kinetic, Position));
             OnEnemyDied?.Invoke(this);
 
             Destroy(gameObject, 0.7f);

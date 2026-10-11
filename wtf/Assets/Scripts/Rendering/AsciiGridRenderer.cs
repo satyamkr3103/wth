@@ -11,25 +11,39 @@ namespace AsciiActionGame.Rendering
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class AsciiGridRenderer : MonoBehaviour, IAsciiRenderer
     {
+        [Header("Diagnostic & Movement Modes")]
+        [Tooltip("True: Anchors grid quads to world coordinates for sub-cell fractional camera scrolling without jumping.")]
+        [SerializeField] private bool _useSubCellSmoothScrolling = true;
+
+        [Tooltip("Diagnostic toggle to disable terrain wind/matrix animations to inspect camera motion purity.")]
+        [SerializeField] private bool _enableTerrainAnimations = true;
+
+        [Tooltip("Diagnostic toggle to disable screen shake, scanlines, and glitch effects.")]
+        [SerializeField] private bool _enablePostProcessing = true;
+
+        [Tooltip("Safety margin cells added to each boundary to prevent viewport clipping during sub-cell scrolling.")]
+        [Range(1, 4)]
+        [SerializeField] private int _marginCells = 2;
+
         [Header("Viewport Resolution")]
         [Tooltip("Number of horizontal character columns visible on screen.")]
-        [SerializeField] private int _columns = 192;
+        [SerializeField] private int _columns = 200;
 
         [Tooltip("Number of vertical character rows visible on screen.")]
         [SerializeField] private int _rows = 108;
 
-        [Tooltip("Automatically scale cell dimensions to precisely match camera viewport bounds.")]
+        [Tooltip("In legacy mode: scale cell dimensions to fit viewport. In smooth mode: matches WorldMap.CellSize.")]
         [SerializeField] private bool _matchCameraViewport = true;
 
-        [Tooltip("Manual monospaced character width in world units (used if Match Camera Viewport is false).")]
-        [SerializeField] private float _cellWidth = 0.2222f;
+        [Tooltip("Manual monospaced character width in world units (overridden by WorldMap.CellSize in smooth mode).")]
+        [SerializeField] private float _cellWidth = 0.25f;
 
-        [Tooltip("Manual monospaced character height in world units (used if Match Camera Viewport is false).")]
-        [SerializeField] private float _cellHeight = 0.2222f;
+        [Tooltip("Manual monospaced character height in world units (overridden by WorldMap.CellSize in smooth mode).")]
+        [SerializeField] private float _cellHeight = 0.25f;
 
         [Tooltip("Aspect ratio adjustment for glyph quads within cells (width / height).")]
         [Range(0.4f, 1.0f)]
-        [SerializeField] private float _glyphAspect = 0.65f;
+        [SerializeField] private float _glyphAspect = 0.86f;
 
         [Tooltip("Fill factor of glyph quad within cell boundaries.")]
         [Range(0.5f, 1.0f)]
@@ -62,10 +76,14 @@ namespace AsciiActionGame.Rendering
         private readonly Rect[] _asciiUvRects = new Rect[256];
         private bool _isUvCacheInitialized = false;
 
+        private int _currentBaseGridX;
+        private int _currentBaseGridY;
+        private float _currentMeshOriginX;
+        private float _currentMeshOriginY;
+
         public static AsciiGridRenderer Instance { get; private set; }
 
         public static event Action<IAsciiRenderer> OnRenderDynamicEntities;
-
         public static event Action<AsciiCell[,], int, int> OnPostProcessBuffer;
 
         public int Columns => _columns;
@@ -73,6 +91,29 @@ namespace AsciiActionGame.Rendering
         public float CellWidth => _cellWidth;
         public float CellHeight => _cellHeight;
         public AsciiColorPalette Palette => _palette;
+        public TMP_FontAsset FontAsset => _fontAsset;
+        public float GlyphAspect
+        {
+            get => _glyphAspect;
+            set
+            {
+                _glyphAspect = Mathf.Clamp(value, 0.4f, 1.0f);
+                BuildProceduralMesh();
+            }
+        }
+        public float GlyphScale
+        {
+            get => _glyphScale;
+            set
+            {
+                _glyphScale = Mathf.Clamp(value, 0.5f, 1.0f);
+                BuildProceduralMesh();
+            }
+        }
+
+        public bool UseSubCellSmoothScrolling { get => _useSubCellSmoothScrolling; set => _useSubCellSmoothScrolling = value; }
+        public bool EnableTerrainAnimations { get => _enableTerrainAnimations; set => _enableTerrainAnimations = value; }
+        public bool EnablePostProcessing { get => _enablePostProcessing; set => _enablePostProcessing = value; }
 
         private void Awake()
         {
@@ -116,6 +157,10 @@ namespace AsciiActionGame.Rendering
                 _palette = AsciiColorPalette.CreateDefault();
             }
 
+            if (_glyphAspect < 0.80f)
+            {
+                _glyphAspect = 0.86f;
+            }
             InitializeRenderer();
         }
 
@@ -145,13 +190,43 @@ namespace AsciiActionGame.Rendering
 
         private void UpdateCellMetrics()
         {
-            if (_matchCameraViewport && _targetCamera != null)
-            {
-                float camHeight = _targetCamera.orthographicSize * 2.0f;
-                float camWidth = camHeight * _targetCamera.aspect;
+            float targetCellSize = _worldMap != null ? _worldMap.CellSize : 0.25f;
 
-                _cellWidth = camWidth / _columns;
-                _cellHeight = camHeight / _rows;
+            if (_useSubCellSmoothScrolling)
+            {
+                _cellWidth = targetCellSize;
+                _cellHeight = targetCellSize;
+
+                if (_targetCamera != null)
+                {
+                    float camHeight = _targetCamera.orthographicSize * 2.0f;
+                    float camWidth = camHeight * _targetCamera.aspect;
+
+                    int visibleCols = Mathf.CeilToInt(camWidth / _cellWidth);
+                    int visibleRows = Mathf.CeilToInt(camHeight / _cellHeight);
+
+                    int neededCols = visibleCols + (_marginCells * 2);
+                    int neededRows = visibleRows + (_marginCells * 2);
+
+                    if (neededCols != _columns || neededRows != _rows)
+                    {
+                        _columns = neededCols;
+                        _rows = neededRows;
+                        _buffer = new AsciiCell[_columns, _rows];
+                        BuildProceduralMesh();
+                    }
+                }
+            }
+            else
+            {
+                if (_matchCameraViewport && _targetCamera != null)
+                {
+                    float camHeight = _targetCamera.orthographicSize * 2.0f;
+                    float camWidth = camHeight * _targetCamera.aspect;
+
+                    _cellWidth = camWidth / _columns;
+                    _cellHeight = camHeight / _rows;
+                }
             }
         }
 
@@ -258,7 +333,6 @@ namespace AsciiActionGame.Rendering
                     _triangles[tBase + 0] = vBase + 0;
                     _triangles[tBase + 1] = vBase + 1;
                     _triangles[tBase + 2] = vBase + 2;
-
                     _triangles[tBase + 3] = vBase + 0;
                     _triangles[tBase + 4] = vBase + 2;
                     _triangles[tBase + 5] = vBase + 3;
@@ -316,11 +390,31 @@ namespace AsciiActionGame.Rendering
             UpdateCellMetrics();
 
             Vector3 camPos = _cameraTransform.position;
-            Vector2 shake = AsciiPostProcessing.Instance != null ? AsciiPostProcessing.Instance.CurrentShakeOffset : Vector2.zero;
-            float halfWidth = (_columns * _cellWidth) * 0.5f;
-            float halfHeight = (_rows * _cellHeight) * 0.5f;
+            Vector2 shake = (_enablePostProcessing && AsciiPostProcessing.Instance != null) ? AsciiPostProcessing.Instance.CurrentShakeOffset : Vector2.zero;
 
-            transform.position = new Vector3(camPos.x - halfWidth + shake.x, camPos.y + halfHeight + shake.y, 0f);
+            if (_useSubCellSmoothScrolling && _targetCamera != null)
+            {
+                float halfCamW = _targetCamera.orthographicSize * _targetCamera.aspect;
+                float halfCamH = _targetCamera.orthographicSize;
+
+                float camLeft = camPos.x - halfCamW;
+                float camTop = camPos.y + halfCamH;
+
+                _currentBaseGridX = Mathf.FloorToInt(camLeft / _cellWidth) - _marginCells;
+                _currentBaseGridY = Mathf.CeilToInt(camTop / _cellHeight) + _marginCells;
+
+                _currentMeshOriginX = _currentBaseGridX * _cellWidth;
+                _currentMeshOriginY = _currentBaseGridY * _cellHeight;
+
+                transform.position = new Vector3(_currentMeshOriginX + shake.x, _currentMeshOriginY + shake.y, 0f);
+            }
+            else
+            {
+                float halfWidth = (_columns * _cellWidth) * 0.5f;
+                float halfHeight = (_rows * _cellHeight) * 0.5f;
+
+                transform.position = new Vector3(camPos.x - halfWidth + shake.x, camPos.y + halfHeight + shake.y, 0f);
+            }
 
             ClearBuffer();
 
@@ -328,7 +422,10 @@ namespace AsciiActionGame.Rendering
 
             OnRenderDynamicEntities?.Invoke(this);
 
-            OnPostProcessBuffer?.Invoke(_buffer, _columns, _rows);
+            if (_enablePostProcessing)
+            {
+                OnPostProcessBuffer?.Invoke(_buffer, _columns, _rows);
+            }
 
             Present();
         }
@@ -349,38 +446,74 @@ namespace AsciiActionGame.Rendering
         {
             if (_worldMap == null) return;
 
-            Vector2 camPos = _cameraTransform.position;
-            float startWorldX = camPos.x - (_columns * _cellWidth) * 0.5f;
-            float startWorldY = camPos.y + (_rows * _cellHeight) * 0.5f;
-
-            for (int y = 0; y < _rows; y++)
+            if (_useSubCellSmoothScrolling)
             {
-                float worldY = startWorldY - (y + 0.5f) * _cellHeight;
-
-                for (int x = 0; x < _columns; x++)
+                for (int r = 0; r < _rows; r++)
                 {
-                    float worldX = startWorldX + (x + 0.5f) * _cellWidth;
-                    Vector2Int gridCoord = _worldMap.WorldToGrid(new Vector2(worldX, worldY));
+                    int gy = _currentBaseGridY - r;
 
-                    WorldTileData tile = _worldMap.GetTile(gridCoord.x, gridCoord.y);
-
-                    if (AnimatedTerrainTile.Instance != null)
+                    for (int c = 0; c < _columns; c++)
                     {
-                        AnimatedTerrainTile.Instance.TryGetAnimatedTile(gridCoord.x, gridCoord.y, tile, out tile);
+                        int gx = _currentBaseGridX + c;
+
+                        WorldTileData tile = _worldMap.GetTile(gx, gy);
+
+                        if (_enableTerrainAnimations && AnimatedTerrainTile.Instance != null)
+                        {
+                            AnimatedTerrainTile.Instance.TryGetAnimatedTile(gx, gy, tile, out tile);
+                        }
+
+                        if (tile.Glyph == ' ' && tile.TileType == GameConstants.TILE_TYPE_GROUND)
+                        {
+                            tile.Glyph = '|';
+                        }
+
+                        if (tile.Glyph != ' ' || tile.BackgroundColor.a > 0)
+                        {
+                            float ao = _worldMap.GetAO(gx, gy);
+                            Color32 shadedColor = AsciiShadingRamp.ApplyShading(tile.Color, ao, 1.0f);
+                            char shadedGlyph = AsciiShadingRamp.ShadedTerrainGlyph(tile.Glyph, ao);
+
+                            _buffer[c, r].Set(shadedGlyph, shadedColor, tile.BackgroundColor, GameConstants.LAYER_BACKGROUND_TERRAIN);
+                        }
                     }
+                }
+            }
+            else
+            {
+                Vector2 camPos = _cameraTransform.position;
+                float startWorldX = camPos.x - (_columns * _cellWidth) * 0.5f;
+                float startWorldY = camPos.y + (_rows * _cellHeight) * 0.5f;
 
-                    if (tile.Glyph == ' ' && tile.TileType == GameConstants.TILE_TYPE_GROUND)
+                for (int y = 0; y < _rows; y++)
+                {
+                    float worldY = startWorldY - (y + 0.5f) * _cellHeight;
+
+                    for (int x = 0; x < _columns; x++)
                     {
-                        tile.Glyph = '|';
-                    }
+                        float worldX = startWorldX + (x + 0.5f) * _cellWidth;
+                        Vector2Int gridCoord = _worldMap.WorldToGrid(new Vector2(worldX, worldY));
 
-                    if (tile.Glyph != ' ' || tile.BackgroundColor.a > 0)
-                    {
-                        float ao = _worldMap.GetAO(gridCoord.x, gridCoord.y);
-                        Color32 shadedColor = AsciiShadingRamp.ApplyShading(tile.Color, ao, 1.0f);
-                        char shadedGlyph = AsciiShadingRamp.ShadedTerrainGlyph(tile.Glyph, ao);
+                        WorldTileData tile = _worldMap.GetTile(gridCoord.x, gridCoord.y);
 
-                        _buffer[x, y].Set(shadedGlyph, shadedColor, tile.BackgroundColor, GameConstants.LAYER_BACKGROUND_TERRAIN);
+                        if (_enableTerrainAnimations && AnimatedTerrainTile.Instance != null)
+                        {
+                            AnimatedTerrainTile.Instance.TryGetAnimatedTile(gridCoord.x, gridCoord.y, tile, out tile);
+                        }
+
+                        if (tile.Glyph == ' ' && tile.TileType == GameConstants.TILE_TYPE_GROUND)
+                        {
+                            tile.Glyph = '|';
+                        }
+
+                        if (tile.Glyph != ' ' || tile.BackgroundColor.a > 0)
+                        {
+                            float ao = _worldMap.GetAO(gridCoord.x, gridCoord.y);
+                            Color32 shadedColor = AsciiShadingRamp.ApplyShading(tile.Color, ao, 1.0f);
+                            char shadedGlyph = AsciiShadingRamp.ShadedTerrainGlyph(tile.Glyph, ao);
+
+                            _buffer[x, y].Set(shadedGlyph, shadedColor, tile.BackgroundColor, GameConstants.LAYER_BACKGROUND_TERRAIN);
+                        }
                     }
                 }
             }
@@ -404,30 +537,56 @@ namespace AsciiActionGame.Rendering
 
         public Vector2Int WorldToViewport(Vector2 worldPos)
         {
-            if (_cameraTransform == null) return new Vector2Int(-1, -1);
+            if (_useSubCellSmoothScrolling)
+            {
+                int c = Mathf.FloorToInt((worldPos.x - _currentMeshOriginX) / _cellWidth);
+                int r = Mathf.FloorToInt((_currentMeshOriginY - worldPos.y) / _cellHeight);
+                return new Vector2Int(c, r);
+            }
+            else
+            {
+                if (_cameraTransform == null) return new Vector2Int(-1, -1);
 
-            Vector2 camPos = _cameraTransform.position;
-            float startWorldX = camPos.x - (_columns * _cellWidth) * 0.5f;
-            float startWorldY = camPos.y + (_rows * _cellHeight) * 0.5f;
+                Vector2 camPos = _cameraTransform.position;
+                float startWorldX = camPos.x - (_columns * _cellWidth) * 0.5f;
+                float startWorldY = camPos.y + (_rows * _cellHeight) * 0.5f;
 
-            int x = Mathf.FloorToInt((worldPos.x - startWorldX) / _cellWidth);
-            int y = Mathf.FloorToInt((startWorldY - worldPos.y) / _cellHeight);
+                int x = Mathf.FloorToInt((worldPos.x - startWorldX) / _cellWidth);
+                int y = Mathf.FloorToInt((startWorldY - worldPos.y) / _cellHeight);
 
-            return new Vector2Int(x, y);
+                return new Vector2Int(x, y);
+            }
         }
 
         public Vector2 ViewportToWorld(int viewX, int viewY)
         {
-            if (_cameraTransform == null) return Vector2.zero;
+            if (_useSubCellSmoothScrolling)
+            {
+                float worldX = _currentMeshOriginX + (viewX + 0.5f) * _cellWidth;
+                float worldY = _currentMeshOriginY - (viewY + 0.5f) * _cellHeight;
+                return new Vector2(worldX, worldY);
+            }
+            else
+            {
+                if (_cameraTransform == null) return Vector2.zero;
 
-            Vector2 camPos = _cameraTransform.position;
-            float startWorldX = camPos.x - (_columns * _cellWidth) * 0.5f;
-            float startWorldY = camPos.y + (_rows * _cellHeight) * 0.5f;
+                Vector2 camPos = _cameraTransform.position;
+                float startWorldX = camPos.x - (_columns * _cellWidth) * 0.5f;
+                float startWorldY = camPos.y + (_rows * _cellHeight) * 0.5f;
 
-            float worldX = startWorldX + (viewX + 0.5f) * _cellWidth;
-            float worldY = startWorldY - (viewY + 0.5f) * _cellHeight;
+                float worldX = startWorldX + (viewX + 0.5f) * _cellWidth;
+                float worldY = startWorldY - (viewY + 0.5f) * _cellHeight;
 
-            return new Vector2(worldX, worldY);
+                return new Vector2(worldX, worldY);
+            }
+        }
+
+        private void OnValidate()
+        {
+            if (Application.isPlaying && _mesh != null)
+            {
+                BuildProceduralMesh();
+            }
         }
 
         public void Present()
@@ -444,7 +603,7 @@ namespace AsciiActionGame.Rendering
                     char glyph = _buffer[c, r].Glyph;
                     Color32 color = _buffer[c, r].ForegroundColor;
 
-                    if (glyph == ' ' || glyph == '\0' || color.a == 0)
+                    if (glyph == ' ' || glyph == ' ' || color.a == 0)
                     {
                         _uvs[vBase + 0] = Vector2.zero;
                         _uvs[vBase + 1] = Vector2.zero;

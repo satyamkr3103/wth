@@ -8,13 +8,15 @@ namespace AsciiActionGame.CameraControl
     {
         [Header("Target Tracking")]
         [SerializeField] private Transform _target;
-        [SerializeField] private float _smoothTime = 0.15f;
+        [SerializeField] private bool _enableSmoothing = true;
+        [SerializeField] private float _smoothTime = 0.12f;
         [SerializeField] private Vector3 _offset = new Vector3(0f, 0f, -10f);
 
         [Header("Look Ahead")]
         [SerializeField] private bool _enableLookAhead = true;
-        [SerializeField] private float _lookAheadDistance = 2.0f;
-        [SerializeField] private float _lookAheadSmoothTime = 0.25f;
+        [SerializeField] private float _lookAheadDistance = 1.2f;
+        [SerializeField] private float _lookAheadSmoothTime = 0.20f;
+        [SerializeField] private float _minVelocityForLookAhead = 0.25f;
 
         [Header("Boundary Clamping")]
         [SerializeField] private bool _clampToWorldBounds = true;
@@ -35,6 +37,11 @@ namespace AsciiActionGame.CameraControl
                 _targetRb = _target != null ? _target.GetComponent<Rigidbody2D>() : null;
             }
         }
+
+        public bool EnableSmoothing { get => _enableSmoothing; set => _enableSmoothing = value; }
+        public bool EnableLookAhead { get => _enableLookAhead; set => _enableLookAhead = value; }
+        public float SmoothTime { get => _smoothTime; set => _smoothTime = value; }
+        public float LookAheadDistance { get => _lookAheadDistance; set => _lookAheadDistance = value; }
 
         private void Awake()
         {
@@ -58,9 +65,19 @@ namespace AsciiActionGame.CameraControl
 
             if (_enableLookAhead && _targetRb != null)
             {
-                Vector3 moveDir = new Vector3(_targetRb.linearVelocity.x, _targetRb.linearVelocity.y, 0f).normalized;
-                Vector3 targetLookAhead = moveDir * _lookAheadDistance;
-                _currentLookAhead = Vector3.SmoothDamp(_currentLookAhead, targetLookAhead, ref _lookAheadVelocity, _lookAheadSmoothTime);
+                Vector2 vel = _targetRb.linearVelocity;
+                float speed = vel.magnitude;
+
+                if (speed > _minVelocityForLookAhead)
+                {
+                    float speedFactor = Mathf.Clamp01(speed / 6.0f);
+                    Vector3 targetLookAhead = (Vector3)(vel.normalized * (_lookAheadDistance * speedFactor));
+                    _currentLookAhead = Vector3.SmoothDamp(_currentLookAhead, targetLookAhead, ref _lookAheadVelocity, _lookAheadSmoothTime);
+                }
+                else
+                {
+                    _currentLookAhead = Vector3.SmoothDamp(_currentLookAhead, Vector3.zero, ref _lookAheadVelocity, _lookAheadSmoothTime * 0.75f);
+                }
             }
             else
             {
@@ -87,7 +104,14 @@ namespace AsciiActionGame.CameraControl
                 else desiredPosition.y = worldBounds.center.y;
             }
 
-            transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref _currentVelocity, _smoothTime);
+            if (_enableSmoothing)
+            {
+                transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref _currentVelocity, _smoothTime);
+            }
+            else
+            {
+                transform.position = desiredPosition;
+            }
         }
 
         public void SnapToTarget()

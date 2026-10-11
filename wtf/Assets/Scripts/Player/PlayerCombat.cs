@@ -24,19 +24,37 @@ namespace AsciiActionGame.Player
             _controller = GetComponent<PlayerController>();
             _asciiView = GetComponent<PlayerAsciiView>();
 
+            EnsureWeaponExists();
+        }
+
+        private void EnsureWeaponExists()
+        {
             if (_activeWeapon == null)
             {
-                _activeWeapon = GetComponentInChildren<WeaponBase>();
+                _activeWeapon = GetComponentInChildren<WeaponBase>(true);
+            }
+            if (_activeWeapon == null)
+            {
+                _activeWeapon = FindFirstObjectByType<WeaponBase>();
+            }
+            if (_activeWeapon == null)
+            {
+                var weaponObj = new GameObject("EraserBeamWeapon");
+                weaponObj.transform.SetParent(transform, false);
+                _activeWeapon = weaponObj.AddComponent<EraserBeamWeapon>();
             }
         }
 
         private void Update()
         {
+            if (_controller != null && _controller.IsDead) return;
+
+            EnsureWeaponExists();
             PollFireInput();
 
             if (_isFireInputHeld && _activeWeapon != null)
             {
-                Vector2 origin = _controller.Position;
+                Vector2 origin = (_asciiView != null) ? _asciiView.GunMuzzleWorldPosition : _controller.Position;
                 Vector2 aimDir = _controller.AimDirection;
                 _activeWeapon.Fire(origin, aimDir);
                 _asciiView?.TriggerFire();

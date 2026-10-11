@@ -8,15 +8,22 @@ namespace AsciiActionGame.World
     {
         public static AnimatedTerrainTile Instance { get; private set; }
 
-        [Header("Moving Grass Settings")]
-        [Tooltip("Ambient wind wave oscillation speed across the meadow.")]
-        [SerializeField] private float _ambientGrassSpeed = 2.4f;
+        [Header("Grass Patch Settings")]
+        [Tooltip("Procedural noise frequency for grass patches. Lower values create cohesive natural patches.")]
+        [SerializeField] private float _grassPatchNoiseScale = 0.08f;
+
+        [Tooltip("Threshold above which ground is considered tall grass that animates. Higher values mean fewer, more isolated patches.")]
+        [Range(0.4f, 0.9f)]
+        [SerializeField] private float _grassPatchThreshold = 0.62f;
+
+        [Tooltip("Speed of the (| -> \\ -> | -> /) swaying cycle.")]
+        [SerializeField] private float _grassLoopSpeed = 3.2f;
 
         [Tooltip("Radius around the player where footsteps agitate the grass.")]
-        [SerializeField] private float _playerWakeRadius = 3.2f;
+        [SerializeField] private float _playerWakeRadius = 3.0f;
 
         [Tooltip("Multiplier for grass sway frequency when player moves through it.")]
-        [SerializeField] private float _playerAgitationMultiplier = 4.5f;
+        [SerializeField] private float _playerAgitationMultiplier = 3.5f;
 
         [Header("Matrix Stream Settings")]
         [SerializeField] private float _streamSpeed = 12f;
@@ -94,61 +101,75 @@ namespace AsciiActionGame.World
             result = baseTile;
             float time = Time.time;
 
+            // 1. Moving Grass: ONLY animate specific patches of wild grass!
             if (baseTile.TileType == GameConstants.TILE_TYPE_GROUND ||
                 baseTile.Glyph == '|' || baseTile.Glyph == '/' || baseTile.Glyph == '\\')
             {
+                // Sample 2D procedural noise to create localized natural grass patches
+                float patchNoise = Mathf.PerlinNoise((gridX * _grassPatchNoiseScale) + 127.4f, (gridY * _grassPatchNoiseScale) + 319.8f);
+
+                // If this tile is NOT in an animated patch, keep it completely steady and static!
+                if (patchNoise < _grassPatchThreshold)
+                {
+                    if (baseTile.Glyph != '|')
+                    {
+                        result = new WorldTileData('|', baseTile.IsWalkable, baseTile.Color, baseTile.BackgroundColor, GameConstants.TILE_TYPE_GROUND);
+                        return true;
+                    }
+                    return false;
+                }
+
+                // In an animated patch: calculate player proximity for footstep agitation
                 float cellSize = _worldMap != null ? _worldMap.CellSize : 0.25f;
                 Vector2 tilePos = new Vector2((gridX + 0.5f) * cellSize, (gridY + 0.5f) * cellSize);
 
                 float distToPlayer = Vector2.Distance(tilePos, _playerPos);
                 float wake = Mathf.Clamp01(1.0f - (distToPlayer / _playerWakeRadius));
 
-                float speedMultiplier = 1.0f + (wake * (_isPlayerMoving ? _playerAgitationMultiplier : 1.2f));
-                float effectiveSpeed = _ambientGrassSpeed * speedMultiplier;
+                float speedMultiplier = 1.0f + (wake * (_isPlayerMoving ? _playerAgitationMultiplier : 0.8f));
+                float effectiveSpeed = _grassLoopSpeed * speedMultiplier;
 
-                float spatialWave = (gridX * 0.22f) + (gridY * 0.12f);
-                float swayPhase = (time * effectiveSpeed) + spatialWave;
+                // Local phase offset per patch for natural variety
+                float patchPhase = patchNoise * 8.0f;
+                float animTime = (time * effectiveSpeed) + patchPhase;
 
-                if (wake > 0.1f && _isPlayerMoving)
+                if (wake > 0.15f && _isPlayerMoving)
                 {
-                    swayPhase += Mathf.Sin(time * 16.0f + distToPlayer * 5.0f) * (wake * 1.8f);
+                    animTime += Mathf.Sin(time * 14.0f + distToPlayer * 4.0f) * (wake * 1.5f);
                 }
 
-                float swaySin = Mathf.Sin(swayPhase);
+                // 4-step loop requested by user: | -> \ -> | -> /
+                int step = Mathf.FloorToInt(animTime) % 4;
+                if (step < 0) step += 4;
 
                 char grassGlyph;
+                switch (step)
+                {
+                    case 0:
+                        grassGlyph = 'K';  // center
+                        break;
+                    case 1:
+                        grassGlyph = '\\'; // lean left
+                        break;
+                    case 2:
+                        grassGlyph = 'J';  // center
+                        break;
+                    case 3:
+                    default:
+                        grassGlyph = '/';  // lean right
+                        break;
+                }
+
                 Color32 grassColor = baseTile.Color;
 
-                if (swaySin < -0.30f)
-                {
-                    grassGlyph = '\\';
-                    grassColor = new Color32(
-                        (byte)Mathf.Min(255, grassColor.r + 12),
-                        (byte)Mathf.Min(255, grassColor.g + 20),
-                        (byte)Mathf.Min(255, grassColor.b + 8),
-                        grassColor.a);
-                }
-                else if (swaySin > 0.30f)
-                {
-                    grassGlyph = '/';
-                    grassColor = new Color32(
-                        (byte)Mathf.Min(255, grassColor.r + 12),
-                        (byte)Mathf.Min(255, grassColor.g + 20),
-                        (byte)Mathf.Min(255, grassColor.b + 8),
-                        grassColor.a);
-                }
-                else
-                {
-                    grassGlyph = '|';
-                }
-
+                // Subtle emerald highlight around player footsteps
                 if (wake > 0.25f)
                 {
-                    byte addG = (byte)(wake * 35);
+                    byte addG = (byte)(wake * 28);
                     grassColor = new Color32(
-                        (byte)Mathf.Min(255, grassColor.r + addG / 2),
+                        (byte)Mathf.Min(255, grassColor.r + addG / 3),
                         (byte)Mathf.Min(255, grassColor.g + addG),
-                        (byte)Mathf.Min(255, grassColor.b + addG / 3),
+                        (byte)Mathf.Min(255, grassColor.b + addG / 4),
                         grassColor.a);
                 }
 

@@ -8,13 +8,13 @@ namespace AsciiActionGame.Rendering
         public static AsciiPostProcessing Instance { get; private set; }
 
         [Header("CRT Scanlines")]
-        [SerializeField] private bool _enableScanlines = true;
+        [SerializeField] private bool _enableScanlines = false;
         [Range(0.5f, 1.0f)]
         [SerializeField] private float _scanlineDarkening = 0.82f;
-        [SerializeField] private bool _enableCrtFlicker = true;
+        [SerializeField] private bool _enableCrtFlicker = false;
 
         [Header("Digital Glitch")]
-        [SerializeField] private bool _enableGlitch = true;
+        [SerializeField] private bool _enableGlitch = false;
         [SerializeField] private float _glitchFrequency = 0.08f;
 
         [Header("Screen Shake")]
@@ -32,6 +32,9 @@ namespace AsciiActionGame.Rendering
         private static readonly Color32 GLITCH_MAGENTA = new Color32(255, 30, 160, 255);
 
         public Vector2 CurrentShakeOffset => _currentShakeOffset;
+        public bool EnableScanlines { get => _enableScanlines; set => _enableScanlines = value; }
+        public bool EnableCrtFlicker { get => _enableCrtFlicker; set => _enableCrtFlicker = value; }
+        public bool EnableGlitch { get => _enableGlitch; set => _enableGlitch = value; }
 
         private void Awake()
         {

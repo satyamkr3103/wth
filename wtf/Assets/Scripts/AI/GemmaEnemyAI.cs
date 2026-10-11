@@ -187,7 +187,7 @@ namespace AsciiActionGame.AI
             {
                 _currentDecision.action = dist < 3f ? AIActionType.Retreat : AIActionType.Strafe;
                 _currentDecision.should_sacrifice = false;
-                _currentDecision.dialogue = $"[GEMMA-AI]: TARGET DISTANCE {dist:F1}M. EXECUTING ORBITAL SUPPRESSION.";
+                _currentDecision.dialogue = "";
             }
 
             OnGemmaDialogueReceived?.Invoke(_currentDecision.dialogue);

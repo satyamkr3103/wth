@@ -29,6 +29,9 @@ namespace AsciiActionGame.Enemies
         private Damageable _damageable;
         private EnemyEntity _parentEnemy;
         private bool _isDetached = false;
+        private bool _severedByPlayer = false;
+        private float _maxHealthCached = 30f;
+        private float _armorCached = 0f;
 
         public BodyPartType PartType => _partType;
         public char Glyph => _glyph;
@@ -37,7 +40,8 @@ namespace AsciiActionGame.Enemies
         public Collider2D PartCollider => _partCollider;
         public bool IsDetached => _isDetached;
         public bool IsDestroyed => _damageable != null && _damageable.IsDead;
-        public bool IsActivePart => !_isDetached && !IsDestroyed;
+        public bool IsActivePart => !_isDetached && !IsDestroyed && !_severedByPlayer;
+        public bool IsSeveredByPlayer => _severedByPlayer;
 
         public event Action<EnemyBodyPart, DamageInfo> OnPartDamaged;
         public event Action<EnemyBodyPart> OnPartDestroyed;
@@ -78,6 +82,8 @@ namespace AsciiActionGame.Enemies
             _partType = partType;
             _glyph = glyph;
             _localOffset = localOffset;
+            _maxHealthCached = health;
+            _armorCached = armor;
 
             if (_damageable == null)
             {
@@ -103,13 +109,23 @@ namespace AsciiActionGame.Enemies
 
         private void HandlePartDied(DamageInfo info)
         {
+            Disappear(info.HitPoint, true);
+        }
+
+        public void Disappear(Vector2 hitPoint, bool byPlayer = true)
+        {
+            if (_isDetached || _severedByPlayer) return;
+
+            _severedByPlayer = byPlayer;
+            _isDetached = true;
+
             if (_partCollider != null)
             {
                 _partCollider.enabled = false;
             }
 
-            Vector2 partWorldPos = _parentEnemy != null ? GetWorldPosition(_parentEnemy.Position, _parentEnemy.FacingDirection) : (Vector2)transform.position;
-            AsciiActionGame.Rendering.DisintegrationEffect.TriggerBurst(partWorldPos, 8);
+            AsciiActionGame.Rendering.DisintegrationEffect.TriggerBurst(hitPoint, 10);
+            AsciiActionGame.Rendering.AsciiPostProcessing.TriggerScreenShake(0.18f);
 
             OnPartDestroyed?.Invoke(this);
 
@@ -136,6 +152,27 @@ namespace AsciiActionGame.Enemies
             {
                 _parentEnemy.OnPartLost(this);
             }
+        }
+
+        public void Regenerate()
+        {
+            if (_severedByPlayer && _partType != BodyPartType.Core) return;
+
+            _isDetached = false;
+            _severedByPlayer = false;
+
+            if (_damageable != null)
+            {
+                _damageable.Initialize(_maxHealthCached, _armorCached);
+            }
+
+            if (_partCollider != null)
+            {
+                _partCollider.enabled = true;
+            }
+
+            Vector2 spawnWorld = _parentEnemy != null ? GetWorldPosition(_parentEnemy.Position, _parentEnemy.FacingDirection) : (Vector2)transform.position;
+            AsciiActionGame.Rendering.DisintegrationEffect.TriggerBurst(spawnWorld, 6, new Color32(0, 255, 180, 255), 2.5f, 0.2f);
         }
 
         public Vector2 GetWorldPosition(Vector2 enemyPos, Vector2 forwardDir)

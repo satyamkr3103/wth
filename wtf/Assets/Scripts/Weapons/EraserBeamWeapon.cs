@@ -1,5 +1,6 @@
 using UnityEngine;
 using AsciiActionGame.Combat;
+using AsciiActionGame.Enemies;
 
 namespace AsciiActionGame.Weapons
 {
@@ -9,13 +10,12 @@ namespace AsciiActionGame.Weapons
         [SerializeField] private EraserBeamVfx _beamVfx;
 
         [Header("Penetration Settings")]
-        [Tooltip("If true, beam passes through low-armor limbs to strike inner structures.")]
         [SerializeField] private bool _enablePiercing = false;
 
         private void Awake()
         {
             _weaponName = "Eraser Beam";
-            _damage = 30f;
+            _damage = 35f;
             _fireRate = 10f;
             _maxRange = 22f;
 
@@ -36,7 +36,7 @@ namespace AsciiActionGame.Weapons
             filter.SetLayerMask(_hitLayers);
             filter.useTriggers = true;
 
-            RaycastHit2D[] hits = new RaycastHit2D[8];
+            RaycastHit2D[] hits = new RaycastHit2D[12];
             int hitCount = Physics2D.Raycast(origin, direction, filter, hits, _maxRange);
 
             Vector2 endPoint = origin + direction * _maxRange;
@@ -53,32 +53,43 @@ namespace AsciiActionGame.Weapons
 
                 endPoint = hit.point;
 
-                IDamageable damageable = hit.collider.GetComponent<IDamageable>();
-                if (damageable == null)
+                EnemyBodyPart bodyPart = hit.collider.GetComponent<EnemyBodyPart>();
+                if (bodyPart != null && bodyPart.IsActivePart)
                 {
-                    damageable = hit.collider.GetComponentInParent<IDamageable>();
+                    bodyPart.Disappear(hit.point, true);
+                    var playerCombat = GetComponentInParent<Player.PlayerCombat>();
+                    if (playerCombat != null) playerCombat.AddCollectedBodyPart();
+
+                    AsciiActionGame.Rendering.DisintegrationEffect.TriggerBurst(hit.point, 5, null, 3.5f, 0.25f);
+                    AsciiActionGame.Rendering.AsciiPostProcessing.TriggerScreenShake(0.08f);
+
+                    if (!_enablePiercing) break;
+                    continue;
                 }
 
+                EnemyEntity enemy = hit.collider.GetComponent<EnemyEntity>() ?? hit.collider.GetComponentInParent<EnemyEntity>();
+                if (enemy != null && !enemy.IsDead)
+                {
+                    DamageInfo info = new DamageInfo(_damage, DamageType.Eraser, hit.point, hit.normal, gameObject);
+                    enemy.TakeDamage(info);
+
+                    AsciiActionGame.Rendering.DisintegrationEffect.TriggerBurst(hit.point, 5, null, 3.5f, 0.25f);
+                    AsciiActionGame.Rendering.AsciiPostProcessing.TriggerScreenShake(0.08f);
+
+                    if (!_enablePiercing) break;
+                    continue;
+                }
+
+                IDamageable damageable = hit.collider.GetComponent<IDamageable>() ?? hit.collider.GetComponentInParent<IDamageable>();
                 if (damageable != null && !damageable.IsDead)
                 {
-                    DamageInfo info = new DamageInfo(
-                        _damage,
-                        DamageType.Eraser,
-                        hit.point,
-                        hit.normal,
-                        gameObject
-                    );
-
+                    DamageInfo info = new DamageInfo(_damage, DamageType.Eraser, hit.point, hit.normal, gameObject);
                     damageable.TakeDamage(info);
-                    NotifyHit(hit, info);
 
                     AsciiActionGame.Rendering.DisintegrationEffect.TriggerBurst(hit.point, 3, null, 3.5f, 0.25f);
                     AsciiActionGame.Rendering.AsciiPostProcessing.TriggerScreenShake(0.06f);
 
-                    if (!_enablePiercing)
-                    {
-                        break;
-                    }
+                    if (!_enablePiercing) break;
                 }
                 else
                 {

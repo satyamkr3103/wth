@@ -8,6 +8,7 @@ namespace AsciiActionGame.Rendering
         int Rows { get; }
         float CellWidth { get; }
         float CellHeight { get; }
+        float GlyphAspect { get; }
 
         void ClearBuffer();
 
