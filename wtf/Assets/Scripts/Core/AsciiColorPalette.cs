@@ -23,6 +23,16 @@ namespace AsciiActionGame.Core
         public Color32 WaterSecondary = new Color32(55, 145, 235, 255);
         public Color32 WaterWave = new Color32(110, 200, 255, 255);
 
+        [Header("Boss Arena Palette")]
+        public Color32 ArenaSand = new Color32(211, 178, 117, 255);
+        public Color32 ArenaSandLight = new Color32(223, 193, 138, 255);
+        public Color32 ArenaGrass = new Color32(94, 152, 77, 255);
+        public Color32 ArenaGrassDark = new Color32(75, 131, 60, 255);
+        public Color32 ArenaStoneWall = new Color32(184, 171, 160, 255);
+        public Color32 ArenaStonePillar = new Color32(200, 188, 176, 255);
+        public Color32 ArenaStoneShadow = new Color32(127, 115, 106, 255);
+        public Color32 ArenaGate = new Color32(138, 130, 117, 255);
+
         [Header("Player")]
         public Color32 PlayerPrimary = new Color32(0, 240, 255, 255);
         public Color32 PlayerSecondary = new Color32(255, 255, 255, 255);

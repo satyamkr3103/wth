@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using AsciiActionGame.Rendering;
 using AsciiActionGame.World;
 using AsciiActionGame.Player;
@@ -6,6 +7,7 @@ using AsciiActionGame.CameraControl;
 using AsciiActionGame.Weapons;
 using AsciiActionGame.Projectiles;
 using AsciiActionGame.Combat;
+using AsciiActionGame.Enemies;
 
 namespace AsciiActionGame.Core
 {
@@ -80,6 +82,27 @@ namespace AsciiActionGame.Core
             {
                 var hudObj = new GameObject("AsciiCombatHud");
                 hudObj.AddComponent<AsciiCombatHud>();
+            }
+
+            string currentScene = SceneManager.GetActiveScene().name;
+            if (currentScene == "MainLevel" && FindFirstObjectByType<SceneTransitionTrigger>() == null)
+            {
+                var portalObj = new GameObject("PortalToBossArena");
+                portalObj.transform.position = new Vector3(46f, 22f, 0f);
+                var col = portalObj.AddComponent<BoxCollider2D>();
+                col.isTrigger = true;
+                col.size = new Vector2(3.5f, 3.5f);
+                portalObj.AddComponent<SceneTransitionTrigger>();
+            }
+            else if (currentScene == "BossFight" && FindFirstObjectByType<BossEntity>() == null)
+            {
+                var bossObj = new GameObject("ColossalBoss_Dreadnought");
+                bossObj.transform.position = new Vector3(30f, 28f, 0f);
+                bossObj.AddComponent<Rigidbody2D>();
+                bossObj.AddComponent<CircleCollider2D>();
+                bossObj.AddComponent<Damageable>();
+                bossObj.AddComponent<BossEntity>();
+                bossObj.AddComponent<BossAsciiView>();
             }
         }
     }

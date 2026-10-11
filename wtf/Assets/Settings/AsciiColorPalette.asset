@@ -54,6 +54,30 @@ MonoBehaviour:
   WaterWave:
     serializedVersion: 2
     rgba: 4294947920
+  ArenaSand:
+    serializedVersion: 2
+    rgba: 4281478649
+  ArenaSandLight:
+    serializedVersion: 2
+    rgba: 4279917802
+  ArenaGrass:
+    serializedVersion: 2
+    rgba: 4281645653
+  ArenaGrassDark:
+    serializedVersion: 2
+    rgba: 4281450311
+  ArenaStoneWall:
+    serializedVersion: 2
+    rgba: 4279900698
+  ArenaStonePillar:
+    serializedVersion: 2
+    rgba: 4283256141
+  ArenaStoneShadow:
+    serializedVersion: 2
+    rgba: 4286611584
+  ArenaGate:
+    serializedVersion: 2
+    rgba: 4278190080
   PlayerPrimary:
     serializedVersion: 2
     rgba: 4278190080
@@ -62,7 +86,7 @@ MonoBehaviour:
     rgba: 4278190080
   PlayerTrail:
     serializedVersion: 2
-    rgba: 3036667648
+    rgba: 16768768
   EnemyCore:
     serializedVersion: 2
     rgba: 4283446015

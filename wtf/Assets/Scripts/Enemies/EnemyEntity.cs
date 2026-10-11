@@ -54,7 +54,7 @@ namespace AsciiActionGame.Enemies
         public EnemyBodyPart CorePart => _corePart;
 
         public float CurrentHealth => _corePart != null && _corePart.Damageable != null ? _corePart.Damageable.CurrentHealth : 0f;
-        public float MaxHealth => _corePart != null && _corePart.Damageable != null ? _corePart.Damageable.MaxHealth : 60f;
+        public float MaxHealth => _corePart != null && _corePart.Damageable != null ? _corePart.Damageable.MaxHealth : 350f;
         public float Armor => _corePart != null && _corePart.Damageable != null ? _corePart.Damageable.Armor : 0f;
 
         public event Action<EnemyState> OnStateChanged;
@@ -127,14 +127,28 @@ namespace AsciiActionGame.Enemies
                 }
             }
 
+            foreach (var part in _bodyParts)
+            {
+                if (part != null && part.Damageable != null && part.Damageable.MaxHealth < 120f)
+                {
+                    float boostedHealth = (part.PartType == BodyPartType.Core) ? 350f :
+                                         ((part.PartType == BodyPartType.ChestArmor) ? 250f :
+                                         ((part.PartType == BodyPartType.LeftArm || part.PartType == BodyPartType.RightArm) ? 160f : 140f));
+                    float boostedArmor = (part.PartType == BodyPartType.ChestArmor) ? 12f :
+                                        ((part.PartType == BodyPartType.Core) ? 10f :
+                                        ((part.PartType == BodyPartType.LeftArm || part.PartType == BodyPartType.RightArm) ? 6f : 4f));
+                    part.Damageable.Initialize(boostedHealth, boostedArmor);
+                }
+            }
+
             if (_bodyParts.Count == 0)
             {
-                CreateDefaultPart("Core", BodyPartType.Core, GameConstants.GLYPH_ENEMY_CORE, Vector2.zero, 60f, 0f, 0.25f);
-                CreateDefaultPart("ChestArmor", BodyPartType.ChestArmor, GameConstants.GLYPH_ENEMY_ARMOR, new Vector2(0f, 0.4f), 45f, 10f, 0.22f);
-                CreateDefaultPart("LeftArm", BodyPartType.LeftArm, GameConstants.GLYPH_ENEMY_ARM_LEFT, new Vector2(-0.5f, 0.1f), 25f, 2f, 0.2f);
-                CreateDefaultPart("RightArm", BodyPartType.RightArm, GameConstants.GLYPH_ENEMY_ARM_RIGHT, new Vector2(0.5f, 0.1f), 25f, 2f, 0.2f);
-                CreateDefaultPart("LeftLeg", BodyPartType.LeftLeg, GameConstants.GLYPH_ENEMY_LEG, new Vector2(-0.3f, -0.4f), 20f, 0f, 0.18f);
-                CreateDefaultPart("RightLeg", BodyPartType.RightLeg, GameConstants.GLYPH_ENEMY_LEG, new Vector2(0.3f, -0.4f), 20f, 0f, 0.18f);
+                CreateDefaultPart("Core", BodyPartType.Core, GameConstants.GLYPH_ENEMY_CORE, Vector2.zero, 350f, 10f, 0.25f);
+                CreateDefaultPart("ChestArmor", BodyPartType.ChestArmor, GameConstants.GLYPH_ENEMY_ARMOR, new Vector2(0f, 0.4f), 250f, 12f, 0.22f);
+                CreateDefaultPart("LeftArm", BodyPartType.LeftArm, GameConstants.GLYPH_ENEMY_ARM_LEFT, new Vector2(-0.5f, 0.1f), 160f, 6f, 0.2f);
+                CreateDefaultPart("RightArm", BodyPartType.RightArm, GameConstants.GLYPH_ENEMY_ARM_RIGHT, new Vector2(0.5f, 0.1f), 160f, 6f, 0.2f);
+                CreateDefaultPart("LeftLeg", BodyPartType.LeftLeg, GameConstants.GLYPH_ENEMY_LEG, new Vector2(-0.3f, -0.4f), 140f, 4f, 0.18f);
+                CreateDefaultPart("RightLeg", BodyPartType.RightLeg, GameConstants.GLYPH_ENEMY_LEG, new Vector2(0.3f, -0.4f), 140f, 4f, 0.18f);
             }
         }
 

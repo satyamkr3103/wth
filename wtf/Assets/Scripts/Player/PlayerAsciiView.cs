@@ -18,8 +18,8 @@ namespace AsciiActionGame.Player
 
         [Header("High-Res ASCII Character Sizing")]
         [SerializeField] [Range(0.2f, 5.0f)] private float _characterScale = 0.85f;
-        [SerializeField] private float _baseCharHeight = 0.052f;
-        [SerializeField] private float _charAspectRatio = 0.55125f;
+        [SerializeField] private float _baseCharHeight = 0.125f;
+        [SerializeField] private float _charAspectRatio = 0.68f;
         [SerializeField] private float _glyphSizeFactor = 1.05f;
         [SerializeField] private Vector2 _characterOffset = new Vector2(0f, 0.10f);
 
@@ -59,6 +59,8 @@ namespace AsciiActionGame.Player
         [Header("Font Asset")]
         [SerializeField] private TMP_FontAsset _fontAsset;
 
+        private const int MAX_SPRITE_QUADS = 96;
+
         private PlayerController _controller;
         private Damageable _damageable;
         private IAsciiRenderer _renderer;
@@ -86,17 +88,6 @@ namespace AsciiActionGame.Player
         private Vector2 _gunMuzzleWorldPos;
         public Vector2 GunMuzzleWorldPosition => (_gunMuzzleWorldPos != Vector2.zero) ? _gunMuzzleWorldPos : (Vector2)transform.position;
 
-        private struct AsciiGlyphDef
-        {
-            public short Col;
-            public short Row;
-            public char Glyph;
-            public byte Type;
-        }
-
-        private AsciiGlyphDef[] _glyphDefs;
-        private int _totalQuads = 0;
-
         private struct TrailPoint
         {
             public Vector2 Position;
@@ -104,80 +95,6 @@ namespace AsciiActionGame.Player
             public float MaxTime;
             public char Glyph;
         }
-
-        private static readonly string[] ASCII_CHARACTER_TEMPLATE = new string[]
-        {
-            "                                         -##",
-            "                                        ####",
-            "                           ###        ######    #####",
-            "                           ######+ ###++###########    ######",
-            "                             ########+++##########+  #######",
-            "                 ####### ###########+++#####################",
-            "                 ##################++++##########++++++######  #####+",
-            "         +#+      ####++++++###++##++++###+++----+++#######++++++###",
-            "         +###     ######++--++##########++++++++######+++---++++###",
-            "          ###############+++++++########++###########++++++++########",
-            "           #####++++----++++++##########################+++++##+#++#####    ###",
-            "  #+       #######+++++++++####+++#########+##########+##+####++########   ####",
-            "  ###############+######+++--+++++######+++++++#############+++################",
-            "   ############+++###++----+--+#++######++-+++--+####+##+++#+++++++++#########",
-            "   ###########++##+++---+++#++++++####++#++-+#+-++###+++#++-+###############",
-            "     ############++--++#++#+###++#####++++++++#++++###++++++--+#############",
-            "       #########++++#+############-  +##+###++###+######+++++++++#############   +#",
-            "##   +##########+++#############     +######++#####   ###+++###++##################",
-            "###########################+###        #####+##+##+   .##########++###############",
-            "  ########################  -#          ####### -.      + ######################",
-            "   #####################-     #####      ####-     #####  ####################",
-            "    ##################-    .########.    ###     ########   ################",
-            "      ################-   ###           ##             -##   #################",
-            "      ################-                                      ####################",
-            "    #################                                         #################+",
-            "   ##################-        ###+                  ####      ################",
-            "        #####+   +####-       ###+                  ####      #####   +####+",
-            "        #####   ..+#          ###-                  ###+        ++..   +####",
-            "       ### ##     -+                                            -+     ++",
-            "           ###     +                                            -.    ##+",
-            "             ###  .+                                            +.  -##-",
-            "              ######-                  #      #                -#####+",
-            "                    #                   #####.                 #+",
-            "                     ##-                                    -+#",
-            "                        #+..                            ..-#",
-            "                        +########                  ######++####",
-            "                     ######+++########         .#######++-+#####+",
-            "                  ###    .#---++##+--++#------#+---+#++---+#    +##",
-            "                 ###     .#----+##------#+--#+------#+-+---#      ##+",
-            "                 #       .#-----##+-----#+--##-----+#+-----#       #+",
-            "                #       #+-------#+--++#-...-+++---#+------+#.      -#",
-            "              ##        #+-------#####         .####+-------#.        #-",
-            "              ##        #+--------+#       #      #---------#-        #-",
-            "             #.        #----------++              #----------+#        ++",
-            "             #         #----------++              #----------+#        ++",
-            "           ##        ##+----------++       .      #+---------+#          #",
-            "           ##        ##----------#+        #       #+---------+#         #",
-            "          +##       .##----------#-                #+----------#         #++",
-            "          #. ....   #++----------#.                #+----------+#-  ....  #+",
-            "          #.      .+#+----------##         .       ##+---------+##-       #+",
-            "          #+        #+----------#                   -#---------+#-        ##",
-            "           #####    #+--------++#                   -#--------++#-    ####",
-            "            #-  #####-+-------##+                   -#---------+######.  #",
-            "            #-     +#+++++----##-      .......     --#+----++-++##       #",
-            "            #-      ###--+-+-+##+######+      +#######+-++-+--+##.       #",
-            "            ###     ####+-++++#++#+++#. ##++#- #+++#++##+----+###      +++",
-            "             +##.  .#++####++##++#+++#. -++++- #+++#++##++#####+#+.   ##+",
-            "                    #+++++++++#########+      ###########+++-+++##",
-            "                    ##++----------------######---------------++###",
-            "                    +##++------------------------------------++#+",
-            "                     ###++-------++---++++++++++++++--------+###",
-            "                      ##++--------+++###########+++---------+##",
-            "                       ##++---------++##     ##+++---------++##",
-            "                        ##+---------+###     ####+-------+++#+",
-            "                        ####+++++++++##        ##++------+++#+",
-            "                        ##+++##########        .###+++#######+",
-            "                      ######++++++++##          ####+++++######",
-            "                     ##+..----+#-++###          ##++-++##--..-##+",
-            "                     ##+-------++#####          ####++--------+#+",
-            "                     ###############            ################",
-        };
 
         private void Awake()
         {
@@ -198,39 +115,7 @@ namespace AsciiActionGame.Player
                 }
             }
 
-            ParseAsciiTemplate();
             SetupSmoothSpriteMesh();
-        }
-
-        private void ParseAsciiTemplate()
-        {
-            var list = new List<AsciiGlyphDef>(3000);
-            for (short r = 0; r < ASCII_CHARACTER_TEMPLATE.Length; r++)
-            {
-                string rowStr = ASCII_CHARACTER_TEMPLATE[r];
-                for (short c = 0; c < rowStr.Length; c++)
-                {
-                    char ch = rowStr[c];
-                    if (ch == ' ' || ch == '\0') continue;
-
-                    byte t = 0;
-                    if (ch == '#') t = 0;
-                    else if (ch == '+') t = 1;
-                    else if (ch == '-') t = 2;
-                    else if (ch == '.') t = 3;
-
-                    list.Add(new AsciiGlyphDef
-                    {
-                        Col = c,
-                        Row = r,
-                        Glyph = ch,
-                        Type = t
-                    });
-                }
-            }
-
-            _glyphDefs = list.ToArray();
-            _totalQuads = _glyphDefs.Length + 28;
         }
 
         private void SetupSmoothSpriteMesh()
@@ -300,31 +185,17 @@ namespace AsciiActionGame.Player
             _isUvCacheInitialized = true;
         }
 
-        private Color32 GetGlyphColor(byte type)
-        {
-            switch (type)
-            {
-                case 0: return _colorHash;
-                case 1: return _colorPlus;
-                case 2: return _colorMinus;
-                case 3: return _colorDot;
-                default: return _colorHash;
-            }
-        }
-
         private void BuildSpriteMesh()
         {
-            if (_totalQuads <= 0) return;
-
-            int vCount = _totalQuads * 4;
-            int tCount = _totalQuads * 6;
+            int vCount = MAX_SPRITE_QUADS * 4;
+            int tCount = MAX_SPRITE_QUADS * 6;
 
             _vertices = new Vector3[vCount];
             _uvs = new Vector2[vCount];
             _colors = new Color32[vCount];
             _triangles = new int[tCount];
 
-            for (int i = 0; i < _totalQuads; i++)
+            for (int i = 0; i < MAX_SPRITE_QUADS; i++)
             {
                 int vBase = i * 4;
                 int tBase = i * 6;
@@ -335,29 +206,6 @@ namespace AsciiActionGame.Player
                 _triangles[tBase + 3] = vBase + 0;
                 _triangles[tBase + 4] = vBase + 2;
                 _triangles[tBase + 5] = vBase + 3;
-            }
-
-            if (_glyphDefs != null && _isUvCacheInitialized)
-            {
-                for (int i = 0; i < _glyphDefs.Length; i++)
-                {
-                    int vBase = i * 4;
-                    char glyph = _glyphDefs[i].Glyph;
-                    int ascii = (int)glyph;
-                    if (ascii < 0 || ascii >= 256) ascii = 63;
-                    Rect uv = _asciiUvRects[ascii];
-
-                    _uvs[vBase + 0] = new Vector2(uv.xMin, uv.yMax);
-                    _uvs[vBase + 1] = new Vector2(uv.xMax, uv.yMax);
-                    _uvs[vBase + 2] = new Vector2(uv.xMax, uv.yMin);
-                    _uvs[vBase + 3] = new Vector2(uv.xMin, uv.yMin);
-
-                    Color32 col = GetGlyphColor(_glyphDefs[i].Type);
-                    _colors[vBase + 0] = col;
-                    _colors[vBase + 1] = col;
-                    _colors[vBase + 2] = col;
-                    _colors[vBase + 3] = col;
-                }
             }
 
             _mesh = new Mesh { name = "Player_ProceduralSpriteMesh" };
@@ -384,7 +232,7 @@ namespace AsciiActionGame.Player
 
         private void Start()
         {
-            _lastTrailPos = _controller.Position;
+            _lastTrailPos = _controller != null ? _controller.Position : (Vector2)transform.position;
         }
 
         private void Update()
@@ -491,9 +339,9 @@ namespace AsciiActionGame.Player
                 }
             }
 
-            if (!_isUvCacheInitialized || _mesh == null || _glyphDefs == null) return;
+            if (!_isUvCacheInitialized || _mesh == null) return;
 
-            Vector2 aim = _controller.AimDirection.normalized;
+            Vector2 aim = _controller != null ? _controller.AimDirection.normalized : Vector2.right;
             if (aim.sqrMagnitude < 0.001f) aim = Vector2.right;
 
             UpdateFacingDirection(aim);
@@ -510,75 +358,350 @@ namespace AsciiActionGame.Player
             bool colorsNeedUpdate = (isFlashing != _wasFlashing);
             _wasFlashing = isFlashing;
 
-            float charH = _baseCharHeight * _characterScale;
-            float charW = charH * _charAspectRatio;
-            float quadH = charH * _glyphSizeFactor;
+            float baseH = (_baseCharHeight < 0.08f) ? 0.125f : _baseCharHeight;
+            float aspect = (_charAspectRatio < 0.6f) ? 0.68f : _charAspectRatio;
+
+            float stepY = baseH * _characterScale;
+            float stepX = stepY * aspect;
+            float quadH = stepY * _glyphSizeFactor;
             float quadW = quadH * (_renderer != null ? _renderer.GlyphAspect : 0.86f);
 
-            bool isMoving = _controller.IsMoving;
-            float walkCycle = isMoving ? Mathf.Sin(Time.time * 12.0f) : 0f;
-            float bodyBob = isMoving ? Mathf.Abs(Mathf.Sin(Time.time * 12.0f)) * (0.025f * _characterScale) : (Mathf.Sin(_animTime * 2.5f) * (0.012f * _characterScale));
-            float legStride = isMoving ? Mathf.Sin(Time.time * 12.0f) * (0.045f * _characterScale) : 0f;
+            bool isMoving = _controller != null && _controller.IsMoving;
+            float walkPhase = Time.time * 13.0f;
+            float legStride = isMoving ? Mathf.Sin(walkPhase) * (0.45f * stepY) : 0f;
+            float legLift = isMoving ? Mathf.Max(0f, Mathf.Cos(walkPhase)) * (0.28f * stepY) : 0f;
+            float bodyBob = isMoving ? Mathf.Abs(Mathf.Sin(walkPhase)) * (0.22f * stepY) : (Mathf.Sin(Time.time * 3.2f) * (0.09f * stepY));
+            float breathe = Mathf.Sin(Time.time * 3.2f) * (0.08f * stepY);
 
-            Vector2 bodyRecoil = Vector2.zero;
+            Vector2 torsoRecoil = Vector2.zero;
+            Vector2 gunRecoil = Vector2.zero;
             if (_fireTimer > 0f)
             {
-                float recoilFactor = _fireTimer / FIRE_DURATION;
-                bodyRecoil = -aim * (0.08f * _characterScale * recoilFactor);
+                float recoilRatio = _fireTimer / FIRE_DURATION;
+                torsoRecoil = -aim * (0.05f * _characterScale * recoilRatio);
+                gunRecoil = -aim * (0.16f * _characterScale * recoilRatio);
             }
 
-            _spriteObj.transform.localPosition = new Vector3(_characterOffset.x + bodyRecoil.x, _characterOffset.y + bodyRecoil.y + bodyBob, -0.1f);
+            _spriteObj.transform.localPosition = new Vector3(
+                _characterOffset.x + torsoRecoil.x,
+                _characterOffset.y + torsoRecoil.y + bodyBob,
+                -0.1f
+            );
 
-            bool isFacingLeft = (aim.x < -0.1f) || (_currentFacingDir == 2);
-            float centerCol = 41.5f;
-            float centerRow = 35.0f;
+            int qIdx = 0;
 
-            for (int i = 0; i < _glyphDefs.Length; i++)
+            void AddQuad(Vector2 localPos, char glyph, Color32 color, float scale = 1.0f)
             {
-                int vBase = i * 4;
-                var def = _glyphDefs[i];
+                if (qIdx >= MAX_SPRITE_QUADS) return;
+                int vBase = qIdx * 4;
 
-                float colDist = def.Col - centerCol;
-                if (isFacingLeft) colDist = -colDist;
+                float qW = quadW * scale;
+                float qH = quadH * scale;
 
-                float localX = colDist * charW;
-                float localY = (centerRow - def.Row) * charH;
-
-                if (def.Row >= 58)
-                {
-                    float legOffset = (def.Col < 41.5f) ? (isFacingLeft ? -legStride : legStride) : (isFacingLeft ? legStride : -legStride);
-                    localY += legOffset;
-                }
-
-                float x0 = localX - (quadW * 0.5f);
-                float x1 = localX + (quadW * 0.5f);
-                float y0 = localY - (quadH * 0.5f);
-                float y1 = localY + (quadH * 0.5f);
+                float x0 = localPos.x - (qW * 0.5f);
+                float x1 = localPos.x + (qW * 0.5f);
+                float y0 = localPos.y - (qH * 0.5f);
+                float y1 = localPos.y + (qH * 0.5f);
 
                 _vertices[vBase + 0] = new Vector3(x0, y1, 0f);
                 _vertices[vBase + 1] = new Vector3(x1, y1, 0f);
                 _vertices[vBase + 2] = new Vector3(x1, y0, 0f);
                 _vertices[vBase + 3] = new Vector3(x0, y0, 0f);
 
-                if (colorsNeedUpdate)
-                {
-                    Color32 col = isFlashing ? Color.white : GetGlyphColor(def.Type);
-                    _colors[vBase + 0] = col;
-                    _colors[vBase + 1] = col;
-                    _colors[vBase + 2] = col;
-                    _colors[vBase + 3] = col;
-                }
+                int ascii = (int)glyph;
+                if (ascii < 0 || ascii >= 256) ascii = 63;
+                Rect uv = _asciiUvRects[ascii];
+
+                _uvs[vBase + 0] = new Vector2(uv.xMin, uv.yMax);
+                _uvs[vBase + 1] = new Vector2(uv.xMax, uv.yMax);
+                _uvs[vBase + 2] = new Vector2(uv.xMax, uv.yMin);
+                _uvs[vBase + 3] = new Vector2(uv.xMin, uv.yMin);
+
+                Color32 c = isFlashing ? Color.white : color;
+                _colors[vBase + 0] = c;
+                _colors[vBase + 1] = c;
+                _colors[vBase + 2] = c;
+                _colors[vBase + 3] = c;
+
+                qIdx++;
             }
 
-            int quadIdx = _glyphDefs.Length;
+            int corePhase = (int)(Time.time * 6.0f) % 4;
+            char coreGlyph = '@';
+            Color32 coreColor = new Color32(0, 240, 255, 255);
+            if (corePhase == 1)
+            {
+                coreGlyph = '*';
+                coreColor = new Color32(180, 255, 255, 255);
+            }
+            else if (corePhase == 2)
+            {
+                coreGlyph = 'O';
+                coreColor = new Color32(40, 200, 255, 255);
+            }
+            else if (corePhase == 3)
+            {
+                coreGlyph = '%';
+                coreColor = new Color32(100, 255, 220, 255);
+            }
 
-            Vector2 handPivot = new Vector2(isFacingLeft ? (-0.42f * _characterScale) : (0.42f * _characterScale), -0.20f * _characterScale);
-            Vector2 handPos = handPivot + (aim * (0.22f * _characterScale));
-            Vector2 gunRecoil = (_fireTimer > 0f) ? (-aim * (0.12f * _characterScale * (_fireTimer / FIRE_DURATION))) : Vector2.zero;
+            int thrusterPhase = (int)(Time.time * 8.0f) % 3;
+            Color32 thrusterColor = (thrusterPhase == 0) ? new Color32(255, 140, 30, 255) : (thrusterPhase == 1 ? new Color32(255, 210, 60, 255) : new Color32(255, 80, 20, 255));
+
+            int visorPhase = (int)(Time.time * 4.0f) % 2;
+            char visorCenterGlyph = (visorPhase == 0) ? '*' : 'o';
+            Color32 visorCenterColor = (visorPhase == 0) ? new Color32(255, 255, 255, 255) : new Color32(80, 240, 255, 255);
+
+            Color32 colArmor = _colorHash;
+            Color32 colArmorLight = _colorPlus;
+            Color32 colArmorDark = _colorMinus;
+            Color32 colConduit = new Color32(60, 180, 220, 255);
+            Color32 colBelt = new Color32(140, 160, 180, 255);
+            Color32 colVisor = new Color32(0, 255, 255, 255);
+
+            if (_currentFacingDir == 0)
+            {
+                AddQuad(new Vector2(-1f * stepX, 4f * stepY + breathe), '/', colArmorLight);
+                AddQuad(new Vector2( 0f * stepX, 4f * stepY + breathe), '^', Color.white);
+                AddQuad(new Vector2( 1f * stepX, 4f * stepY + breathe), '\\', colArmorLight);
+
+                AddQuad(new Vector2(-2f * stepX, 3f * stepY + breathe), '[', colArmorDark);
+                AddQuad(new Vector2(-1f * stepX, 3f * stepY + breathe), '=', colVisor);
+                AddQuad(new Vector2( 0f * stepX, 3f * stepY + breathe), visorCenterGlyph, visorCenterColor, 1.15f);
+                AddQuad(new Vector2( 1f * stepX, 3f * stepY + breathe), '=', colVisor);
+                AddQuad(new Vector2( 2f * stepX, 3f * stepY + breathe), ']', colArmorDark);
+
+                AddQuad(new Vector2(-2f * stepX, 2f * stepY + breathe), '(', colArmor);
+                AddQuad(new Vector2(-1f * stepX, 2f * stepY + breathe), '#', colArmorDark);
+                AddQuad(new Vector2( 0f * stepX, 2f * stepY + breathe), 'v', colArmorLight);
+                AddQuad(new Vector2( 1f * stepX, 2f * stepY + breathe), '#', colArmorDark);
+                AddQuad(new Vector2( 2f * stepX, 2f * stepY + breathe), ')', colArmor);
+
+                AddQuad(new Vector2(-3f * stepX, 1f * stepY + (breathe * 0.6f)), '{', colArmorLight);
+                AddQuad(new Vector2(-2f * stepX, 1f * stepY + (breathe * 0.6f)), '#', colArmor);
+                AddQuad(new Vector2(-1f * stepX, 1f * stepY + (breathe * 0.6f)), '|', colConduit);
+                AddQuad(new Vector2( 0f * stepX, 1f * stepY + (breathe * 0.6f)), '=', colArmorDark);
+                AddQuad(new Vector2( 1f * stepX, 1f * stepY + (breathe * 0.6f)), '|', colConduit);
+                AddQuad(new Vector2( 2f * stepX, 1f * stepY + (breathe * 0.6f)), '#', colArmor);
+                AddQuad(new Vector2( 3f * stepX, 1f * stepY + (breathe * 0.6f)), '}', colArmorLight);
+
+                AddQuad(new Vector2(-3f * stepX, 0f * stepY), '|', colArmorDark);
+                AddQuad(new Vector2(-2f * stepX, 0f * stepY), '[', colArmor);
+                AddQuad(new Vector2(-1f * stepX, 0f * stepY), ':', colConduit);
+                AddQuad(new Vector2( 0f * stepX, 0f * stepY), coreGlyph, coreColor, 1.25f);
+                AddQuad(new Vector2( 1f * stepX, 0f * stepY), ':', colConduit);
+                AddQuad(new Vector2( 2f * stepX, 0f * stepY), ']', colArmor);
+                AddQuad(new Vector2( 3f * stepX, 0f * stepY), '|', colArmorDark);
+
+                AddQuad(new Vector2(-2f * stepX, -1f * stepY), '/', colArmorLight);
+                AddQuad(new Vector2(-1f * stepX, -1f * stepY), '#', colArmor);
+                AddQuad(new Vector2( 0f * stepX, -1f * stepY), '|', colConduit);
+                AddQuad(new Vector2( 1f * stepX, -1f * stepY), '#', colArmor);
+                AddQuad(new Vector2( 2f * stepX, -1f * stepY), '\\', colArmorLight);
+
+                AddQuad(new Vector2(-3f * stepX, -2f * stepY), '[', colBelt);
+                AddQuad(new Vector2(-2f * stepX, -2f * stepY), '=', colBelt);
+                AddQuad(new Vector2(-1f * stepX, -2f * stepY), '#', colArmor);
+                AddQuad(new Vector2( 0f * stepX, -2f * stepY), '=', colArmorLight);
+                AddQuad(new Vector2( 1f * stepX, -2f * stepY), '#', colArmor);
+                AddQuad(new Vector2( 2f * stepX, -2f * stepY), '=', colBelt);
+                AddQuad(new Vector2( 3f * stepX, -2f * stepY), ']', colBelt);
+
+                float legL_Y = legStride;
+                float legR_Y = -legStride;
+
+                AddQuad(new Vector2(-2f * stepX, -3f * stepY + legL_Y), '|', colArmorDark);
+                AddQuad(new Vector2(-1f * stepX, -3f * stepY + legL_Y), '#', colArmor);
+                AddQuad(new Vector2( 1f * stepX, -3f * stepY + legR_Y), '#', colArmor);
+                AddQuad(new Vector2( 2f * stepX, -3f * stepY + legR_Y), '|', colArmorDark);
+
+                AddQuad(new Vector2(-2f * stepX, -4f * stepY + legL_Y), '[', colArmorDark);
+                AddQuad(new Vector2(-1f * stepX, -4f * stepY + legL_Y), 'o', colArmorLight);
+                AddQuad(new Vector2( 1f * stepX, -4f * stepY + legR_Y), 'o', colArmorLight);
+                AddQuad(new Vector2( 2f * stepX, -4f * stepY + legR_Y), ']', colArmorDark);
+
+                AddQuad(new Vector2(-2f * stepX, -5f * stepY + legL_Y), '[', colArmor);
+                AddQuad(new Vector2(-1f * stepX, -5f * stepY + legL_Y), '=', colArmorLight);
+                AddQuad(new Vector2( 1f * stepX, -5f * stepY + legR_Y), '=', colArmorLight);
+                AddQuad(new Vector2( 2f * stepX, -5f * stepY + legR_Y), ']', colArmor);
+            }
+            else if (_currentFacingDir == 3)
+            {
+                AddQuad(new Vector2(-1f * stepX, 4f * stepY + breathe), '/', colArmorLight);
+                AddQuad(new Vector2( 0f * stepX, 4f * stepY + breathe), '|', Color.white);
+                AddQuad(new Vector2( 1f * stepX, 4f * stepY + breathe), '\\', colArmorLight);
+
+                AddQuad(new Vector2(-2f * stepX, 3f * stepY + breathe), '(', colArmorDark);
+                AddQuad(new Vector2(-1f * stepX, 3f * stepY + breathe), '#', colArmor);
+                AddQuad(new Vector2( 0f * stepX, 3f * stepY + breathe), '=', colArmorDark);
+                AddQuad(new Vector2( 1f * stepX, 3f * stepY + breathe), '#', colArmor);
+                AddQuad(new Vector2( 2f * stepX, 3f * stepY + breathe), ')', colArmorDark);
+
+                AddQuad(new Vector2(-2f * stepX, 2f * stepY + breathe), '[', colArmorDark);
+                AddQuad(new Vector2(-1f * stepX, 2f * stepY + breathe), ':', colConduit);
+                AddQuad(new Vector2( 0f * stepX, 2f * stepY + breathe), '|', colConduit);
+                AddQuad(new Vector2( 1f * stepX, 2f * stepY + breathe), ':', colConduit);
+                AddQuad(new Vector2( 2f * stepX, 2f * stepY + breathe), ']', colArmorDark);
+
+                AddQuad(new Vector2(-3f * stepX, 1f * stepY + (breathe * 0.6f)), '{', colArmorLight);
+                AddQuad(new Vector2(-2f * stepX, 1f * stepY + (breathe * 0.6f)), 'O', thrusterColor, 1.2f);
+                AddQuad(new Vector2(-1f * stepX, 1f * stepY + (breathe * 0.6f)), '#', colArmor);
+                AddQuad(new Vector2( 0f * stepX, 1f * stepY + (breathe * 0.6f)), '=', colArmorDark);
+                AddQuad(new Vector2( 1f * stepX, 1f * stepY + (breathe * 0.6f)), '#', colArmor);
+                AddQuad(new Vector2( 2f * stepX, 1f * stepY + (breathe * 0.6f)), 'O', thrusterColor, 1.2f);
+                AddQuad(new Vector2( 3f * stepX, 1f * stepY + (breathe * 0.6f)), '}', colArmorLight);
+
+                AddQuad(new Vector2(-3f * stepX, 0f * stepY), '|', colArmorDark);
+                AddQuad(new Vector2(-2f * stepX, 0f * stepY), '[', colArmorLight);
+                AddQuad(new Vector2(-1f * stepX, 0f * stepY), '=', colConduit);
+                AddQuad(new Vector2( 0f * stepX, 0f * stepY), '#', colArmor);
+                AddQuad(new Vector2( 1f * stepX, 0f * stepY), '=', colConduit);
+                AddQuad(new Vector2( 2f * stepX, 0f * stepY), ']', colArmorLight);
+                AddQuad(new Vector2( 3f * stepX, 0f * stepY), '|', colArmorDark);
+
+                AddQuad(new Vector2(-2f * stepX, -1f * stepY), '/', colArmorLight);
+                AddQuad(new Vector2(-1f * stepX, -1f * stepY), '|', colConduit);
+                AddQuad(new Vector2( 0f * stepX, -1f * stepY), ':', colConduit);
+                AddQuad(new Vector2( 1f * stepX, -1f * stepY), '|', colConduit);
+                AddQuad(new Vector2( 2f * stepX, -1f * stepY), '\\', colArmorLight);
+
+                AddQuad(new Vector2(-3f * stepX, -2f * stepY), '[', colBelt);
+                AddQuad(new Vector2(-2f * stepX, -2f * stepY), '=', colBelt);
+                AddQuad(new Vector2(-1f * stepX, -2f * stepY), '#', colArmor);
+                AddQuad(new Vector2( 0f * stepX, -2f * stepY), '=', colArmorLight);
+                AddQuad(new Vector2( 1f * stepX, -2f * stepY), '#', colArmor);
+                AddQuad(new Vector2( 2f * stepX, -2f * stepY), '=', colBelt);
+                AddQuad(new Vector2( 3f * stepX, -2f * stepY), ']', colBelt);
+
+                float legL_Y = -legStride;
+                float legR_Y = legStride;
+
+                AddQuad(new Vector2(-2f * stepX, -3f * stepY + legL_Y), '|', colArmorDark);
+                AddQuad(new Vector2(-1f * stepX, -3f * stepY + legL_Y), '#', colArmor);
+                AddQuad(new Vector2( 1f * stepX, -3f * stepY + legR_Y), '#', colArmor);
+                AddQuad(new Vector2( 2f * stepX, -3f * stepY + legR_Y), '|', colArmorDark);
+
+                AddQuad(new Vector2(-2f * stepX, -4f * stepY + legL_Y), '[', colArmorDark);
+                AddQuad(new Vector2(-1f * stepX, -4f * stepY + legL_Y), 'o', colArmorLight);
+                AddQuad(new Vector2( 1f * stepX, -4f * stepY + legR_Y), 'o', colArmorLight);
+                AddQuad(new Vector2( 2f * stepX, -4f * stepY + legR_Y), ']', colArmorDark);
+
+                AddQuad(new Vector2(-2f * stepX, -5f * stepY + legL_Y), '[', colArmor);
+                AddQuad(new Vector2(-1f * stepX, -5f * stepY + legL_Y), '=', colArmorLight);
+                AddQuad(new Vector2( 1f * stepX, -5f * stepY + legR_Y), '=', colArmorLight);
+                AddQuad(new Vector2( 2f * stepX, -5f * stepY + legR_Y), ']', colArmor);
+            }
+            else
+            {
+                bool flipX = (_currentFacingDir == 2);
+
+                void AddSideQuad(float col, float row, char glyph, Color32 color, float scale = 1.0f)
+                {
+                    float posX = col * stepX;
+                    char g = glyph;
+                    if (flipX)
+                    {
+                        posX = -posX;
+                        if (g == '>') g = '<';
+                        else if (g == '<') g = '>';
+                        else if (g == '[') g = ']';
+                        else if (g == ']') g = '[';
+                        else if (g == '{') g = '}';
+                        else if (g == '}') g = '{';
+                        else if (g == '(') g = ')';
+                        else if (g == ')') g = '(';
+                        else if (g == '/') g = '\\';
+                        else if (g == '\\') g = '/';
+                    }
+                    AddQuad(new Vector2(posX, row * stepY), g, color, scale);
+                }
+
+                AddSideQuad(-1f, 4f + breathe, '^', Color.white);
+                AddSideQuad( 0f, 4f + breathe, '=', colArmorLight);
+                AddSideQuad( 1f, 4f + breathe, '\\', colArmorLight);
+
+                AddSideQuad(-2f, 3f + breathe, '(', colArmorDark);
+                AddSideQuad(-1f, 3f + breathe, '#', colArmor);
+                AddSideQuad( 0f, 3f + breathe, '[', colArmorDark);
+                AddSideQuad( 1f, 3f + breathe, '>', colVisor, 1.15f);
+                AddSideQuad( 2f, 3f + breathe, '=', colVisor);
+
+                AddSideQuad(-2f, 2f + breathe, '|', colArmorDark);
+                AddSideQuad(-1f, 2f + breathe, '#', colArmor);
+                AddSideQuad( 0f, 2f + breathe, '/', colArmorLight);
+                AddSideQuad( 1f, 2f + breathe, '=', colArmorLight);
+
+                AddSideQuad(-3f, 1f + (breathe * 0.6f), '{', colArmorLight);
+                AddSideQuad(-2f, 1f + (breathe * 0.6f), 'O', thrusterColor, 1.2f);
+                AddSideQuad(-1f, 1f + (breathe * 0.6f), '#', colArmor);
+                AddSideQuad( 0f, 1f + (breathe * 0.6f), '{', colArmorLight);
+                AddSideQuad( 1f, 1f + (breathe * 0.6f), '#', colArmor);
+                AddSideQuad( 2f, 1f + (breathe * 0.6f), ']', colArmorDark);
+
+                AddSideQuad(-3f, 0f, '[', colArmorLight);
+                AddSideQuad(-2f, 0f, '#', colArmor);
+                AddSideQuad(-1f, 0f, '|', colArmorDark);
+                AddSideQuad( 0f, 0f, coreGlyph, coreColor, 1.2f);
+                AddSideQuad( 1f, 0f, '#', colArmor);
+                AddSideQuad( 2f, 0f, ']', colArmorDark);
+
+                AddSideQuad(-2f, -1f, '|', colArmorDark);
+                AddSideQuad(-1f, -1f, '#', colArmor);
+                AddSideQuad( 0f, -1f, ':', colConduit);
+                AddSideQuad( 1f, -1f, '#', colArmor);
+                AddSideQuad( 2f, -1f, '/', colArmorLight);
+
+                AddSideQuad(-2f, -2f, '[', colBelt);
+                AddSideQuad(-1f, -2f, '#', colArmor);
+                AddSideQuad( 0f, -2f, '=', colBelt);
+                AddSideQuad( 1f, -2f, '#', colArmor);
+                AddSideQuad( 2f, -2f, ']', colBelt);
+
+                float legFrontX = (flipX ? -legStride : legStride) * 1.5f;
+                float legBackX = -legFrontX;
+                float legFrontY = legLift;
+                float legBackY = 0f;
+
+                AddSideQuad(-1f + (legBackX / stepX), -3f + (legBackY / stepY), '\\', colArmorDark);
+                AddSideQuad( 0f + (legBackX / stepX), -3f + (legBackY / stepY), '#', colArmor);
+                AddSideQuad( 1f + (legFrontX / stepX), -3f + (legFrontY / stepY), '#', colArmor);
+                AddSideQuad( 2f + (legFrontX / stepX), -3f + (legFrontY / stepY), '/', colArmorDark);
+
+                AddSideQuad(-1f + (legBackX / stepX), -4f + (legBackY / stepY), 'o', colArmorLight);
+                AddSideQuad( 0f + (legBackX / stepX), -4f + (legBackY / stepY), ']', colArmorDark);
+                AddSideQuad( 1f + (legFrontX / stepX), -4f + (legFrontY / stepY), '[', colArmorDark);
+                AddSideQuad( 2f + (legFrontX / stepX), -4f + (legFrontY / stepY), 'o', colArmorLight);
+
+                AddSideQuad(-2f + (legBackX / stepX), -5f + (legBackY / stepY), '[', colArmor);
+                AddSideQuad(-1f + (legBackX / stepX), -5f + (legBackY / stepY), '=', colArmorLight);
+                AddSideQuad( 0f + (legBackX / stepX), -5f + (legBackY / stepY), ']', colArmor);
+                AddSideQuad( 1f + (legFrontX / stepX), -5f + (legFrontY / stepY), '[', colArmor);
+                AddSideQuad( 2f + (legFrontX / stepX), -5f + (legFrontY / stepY), '=', colArmorLight);
+                AddSideQuad( 3f + (legFrontX / stepX), -5f + (legFrontY / stepY), ']', colArmor);
+            }
+
+            float shoulderX;
+            if (_currentFacingDir == 2)
+            {
+                shoulderX = -0.20f * _characterScale;
+            }
+            else if (_currentFacingDir == 1)
+            {
+                shoulderX = 0.20f * _characterScale;
+            }
+            else
+            {
+                shoulderX = (aim.x >= 0f) ? (0.22f * _characterScale) : (-0.22f * _characterScale);
+            }
+
+            float shoulderY = (1.25f * stepY) + (breathe * 0.6f);
+            Vector2 shoulderPivot = new Vector2(shoulderX, shoulderY);
+
+            Vector2 handPos = shoulderPivot + (aim * (0.20f * _characterScale));
             Vector2 gunPos = handPos + gunRecoil;
 
             char barrelGlyph = '=';
-            char muzzleGlyph = isFacingLeft ? '<' : '>';
+            char muzzleGlyph = (_currentFacingDir == 2) ? '<' : '>';
 
             float absAimX = Mathf.Abs(aim.x);
             float absAimY = Mathf.Abs(aim.y);
@@ -608,69 +731,48 @@ namespace AsciiActionGame.Player
 
             Vector2 perp = new Vector2(-aim.y, aim.x);
 
-            void SetCustomQuad(int index, Vector2 pos, char glyph, Color32 color, float scaleMul = 1.0f)
-            {
-                if (index >= _totalQuads) return;
-                int vBase = index * 4;
-
-                float qW = quadW * scaleMul;
-                float qH = quadH * scaleMul;
-
-                float x0 = pos.x - (qW * 0.5f);
-                float x1 = pos.x + (qW * 0.5f);
-                float y0 = pos.y - (qH * 0.5f);
-                float y1 = pos.y + (qH * 0.5f);
-
-                _vertices[vBase + 0] = new Vector3(x0, y1, 0f);
-                _vertices[vBase + 1] = new Vector3(x1, y1, 0f);
-                _vertices[vBase + 2] = new Vector3(x1, y0, 0f);
-                _vertices[vBase + 3] = new Vector3(x0, y0, 0f);
-
-                int ascii = (int)glyph;
-                if (ascii < 0 || ascii >= 256) ascii = 63;
-                Rect uv = _asciiUvRects[ascii];
-
-                _uvs[vBase + 0] = new Vector2(uv.xMin, uv.yMax);
-                _uvs[vBase + 1] = new Vector2(uv.xMax, uv.yMax);
-                _uvs[vBase + 2] = new Vector2(uv.xMax, uv.yMin);
-                _uvs[vBase + 3] = new Vector2(uv.xMin, uv.yMin);
-
-                Color32 c = isFlashing ? Color.white : color;
-                _colors[vBase + 0] = c;
-                _colors[vBase + 1] = c;
-                _colors[vBase + 2] = c;
-                _colors[vBase + 3] = c;
-            }
-
             if (_showGunInHands)
             {
-                char gripGlyph = isFacingLeft ? ']' : '[';
-                SetCustomQuad(quadIdx++, gunPos, gripGlyph, _colorHash, 1.05f);
+                Vector2 armPos = Vector2.Lerp(shoulderPivot, gunPos, 0.45f);
+                char armGlyph = (_currentFacingDir == 2 || _currentFacingDir == 1) ? '=' : '-';
+                AddQuad(armPos, armGlyph, colArmorLight, 1.0f);
 
-                Vector2 receiverPos = gunPos + aim * (0.16f * _characterScale);
-                SetCustomQuad(quadIdx++, receiverPos, '#', _colorGunBody, 1.1f);
+                char gripGlyph = (_currentFacingDir == 2) ? ']' : '[';
+                AddQuad(gunPos, gripGlyph, _colorHash, 1.05f);
 
-                Vector2 sightPos = receiverPos + perp * (0.08f * _characterScale);
-                SetCustomQuad(quadIdx++, sightPos, '.', _colorGunSight, 1.0f);
+                Vector2 receiverPos = gunPos + aim * (0.14f * _characterScale);
+                AddQuad(receiverPos, '#', _colorGunBody, 1.1f);
 
-                Vector2 barrelPos = gunPos + aim * (0.34f * _characterScale);
-                SetCustomQuad(quadIdx++, barrelPos, barrelGlyph, _colorGunBarrel, 1.1f);
+                Vector2 magPos = receiverPos - perp * (0.07f * _characterScale);
+                AddQuad(magPos, '|', _colorHash, 0.95f);
+
+                Vector2 sightPos = receiverPos + perp * (0.07f * _characterScale);
+                AddQuad(sightPos, '.', _colorGunSight, 1.0f);
+
+                Vector2 barrelPos1 = gunPos + aim * (0.26f * _characterScale);
+                AddQuad(barrelPos1, barrelGlyph, _colorGunBarrel, 1.05f);
+
+                Vector2 barrelPos2 = gunPos + aim * (0.38f * _characterScale);
+                AddQuad(barrelPos2, barrelGlyph, _colorGunBarrel, 1.1f);
 
                 Vector2 muzzlePos = gunPos + aim * (_gunDistance * _characterScale);
-                SetCustomQuad(quadIdx++, muzzlePos, muzzleGlyph, new Color32(190, 245, 255, 255), 1.15f);
+                AddQuad(muzzlePos, muzzleGlyph, new Color32(190, 245, 255, 255), 1.15f);
 
                 _gunMuzzleWorldPos = (Vector2)transform.position + (Vector2)_spriteObj.transform.localPosition + muzzlePos;
 
                 if (_fireTimer > 0f)
                 {
                     Vector2 flashCorePos = muzzlePos + aim * (0.12f * _characterScale);
-                    SetCustomQuad(quadIdx++, flashCorePos, '*', _colorMuzzleFlash, 1.4f);
+                    AddQuad(flashCorePos, '*', _colorMuzzleFlash, 1.4f);
 
                     Vector2 flashSparkPos = muzzlePos + aim * (0.24f * _characterScale);
-                    SetCustomQuad(quadIdx++, flashSparkPos, '+', new Color32(200, 255, 255, 255), 1.1f);
+                    AddQuad(flashSparkPos, '+', new Color32(200, 255, 255, 255), 1.15f);
 
-                    Vector2 sparkSidePos = muzzlePos + aim * (0.16f * _characterScale) + perp * (0.10f * _characterScale);
-                    SetCustomQuad(quadIdx++, sparkSidePos, '.', new Color32(255, 220, 80, 255), 0.9f);
+                    Vector2 sparkSidePos1 = muzzlePos + aim * (0.16f * _characterScale) + perp * (0.10f * _characterScale);
+                    AddQuad(sparkSidePos1, '.', new Color32(255, 220, 80, 255), 0.95f);
+
+                    Vector2 sparkSidePos2 = muzzlePos + aim * (0.16f * _characterScale) - perp * (0.10f * _characterScale);
+                    AddQuad(sparkSidePos2, '.', new Color32(255, 220, 80, 255), 0.95f);
                 }
             }
             else
@@ -678,7 +780,7 @@ namespace AsciiActionGame.Player
                 _gunMuzzleWorldPos = (Vector2)transform.position;
             }
 
-            for (int i = quadIdx; i < _totalQuads; i++)
+            for (int i = qIdx; i < MAX_SPRITE_QUADS; i++)
             {
                 int vBase = i * 4;
                 _vertices[vBase + 0] = Vector3.zero;
@@ -699,7 +801,7 @@ namespace AsciiActionGame.Player
 
         private void RenderSmoothCustomAnimationClip(float cellW, float cellH, Vector2 aim)
         {
-            bool isMoving = _controller.IsMoving;
+            bool isMoving = _controller != null && _controller.IsMoving;
             bool isFacingLeft = aim.x < -0.1f;
 
             AsciiAnimationClip activeClip = null;
@@ -755,7 +857,7 @@ namespace AsciiActionGame.Player
             {
                 for (int x = 0; x < frame.Width; x++)
                 {
-                    if (quadIdx >= _totalQuads) break;
+                    if (quadIdx >= MAX_SPRITE_QUADS) break;
 
                     int sampleX = isFacingLeft ? (frame.Width - 1 - x) : x;
                     char g = frame.GetGlyph(sampleX, y);
@@ -802,7 +904,7 @@ namespace AsciiActionGame.Player
                 }
             }
 
-            for (int i = quadIdx; i < _totalQuads; i++)
+            for (int i = quadIdx; i < MAX_SPRITE_QUADS; i++)
             {
                 int vBase = i * 4;
                 _vertices[vBase + 0] = Vector3.zero;
@@ -828,8 +930,8 @@ namespace AsciiActionGame.Player
 
         private void RenderLegacyQuantizedSprite(IAsciiRenderer renderer)
         {
-            Vector2 pos = _controller.Position;
-            Vector2 aim = _controller.AimDirection.normalized;
+            Vector2 pos = _controller != null ? _controller.Position : (Vector2)transform.position;
+            Vector2 aim = _controller != null ? _controller.AimDirection.normalized : Vector2.right;
             UpdateFacingDirection(aim);
 
             bool isFlashing = _damageable != null && _damageable.IsFlashing;
@@ -867,8 +969,8 @@ namespace AsciiActionGame.Player
 
         private void RenderCustomAnimationClip(IAsciiRenderer renderer)
         {
-            Vector2 aim = _controller.AimDirection.normalized;
-            bool isMoving = _controller.IsMoving;
+            Vector2 aim = _controller != null ? _controller.AimDirection.normalized : Vector2.right;
+            bool isMoving = _controller != null && _controller.IsMoving;
             bool isFacingLeft = aim.x < -0.1f;
 
             AsciiAnimationClip activeClip = null;
@@ -909,7 +1011,7 @@ namespace AsciiActionGame.Player
             var frame = activeClip.Evaluate(_animTime);
             if (frame == null) return;
 
-            Vector2 centerPos = _controller.Position;
+            Vector2 centerPos = _controller != null ? _controller.Position : (Vector2)transform.position;
             float cellW = renderer.CellWidth > 0f ? renderer.CellWidth : 0.25f;
             float cellH = renderer.CellHeight > 0f ? renderer.CellHeight : 0.25f;
 
@@ -940,7 +1042,7 @@ namespace AsciiActionGame.Player
                         g,
                         col,
                         Color.clear,
-                        GameConstants.LAYER_PLAYER
+                        GameConstants.LAYER_PLAYER + 1
                     );
                 }
             }
@@ -948,40 +1050,42 @@ namespace AsciiActionGame.Player
 
         private void UpdateTrail()
         {
-            if (!_enableTrail) return;
+            if (!_enableTrail)
+            {
+                _trailPoints.Clear();
+                return;
+            }
 
             float dt = Time.deltaTime;
-
             for (int i = _trailPoints.Count - 1; i >= 0; i--)
             {
-                var pt = _trailPoints[i];
-                pt.RemainingTime -= dt;
-                if (pt.RemainingTime <= 0f)
+                var tp = _trailPoints[i];
+                tp.RemainingTime -= dt;
+                if (tp.RemainingTime <= 0f)
                 {
                     _trailPoints.RemoveAt(i);
                 }
                 else
                 {
-                    _trailPoints[i] = pt;
+                    _trailPoints[i] = tp;
                 }
             }
 
-            Vector2 currentPos = _controller.Position;
-            if (Vector2.Distance(currentPos, _lastTrailPos) >= _trailSpawnDistance && _controller.IsMoving)
+            Vector2 currentPos = _controller != null ? _controller.Position : (Vector2)transform.position;
+            if (Vector2.Distance(currentPos, _lastTrailPos) >= _trailSpawnDistance)
             {
-                char trailGlyph = (_trailPoints.Count % 2 == 0) ? '.' : '+';
-                _trailPoints.Add(new TrailPoint
-                {
-                    Position = _lastTrailPos,
-                    RemainingTime = _trailLifetime,
-                    MaxTime = _trailLifetime,
-                    Glyph = trailGlyph
-                });
-
-                if (_trailPoints.Count > _maxTrailPoints)
+                if (_trailPoints.Count >= _maxTrailPoints)
                 {
                     _trailPoints.RemoveAt(0);
                 }
+
+                _trailPoints.Add(new TrailPoint
+                {
+                    Position = currentPos,
+                    RemainingTime = _trailLifetime,
+                    MaxTime = _trailLifetime,
+                    Glyph = '.'
+                });
 
                 _lastTrailPos = currentPos;
             }
@@ -989,13 +1093,24 @@ namespace AsciiActionGame.Player
 
         private void RenderTrail(IAsciiRenderer renderer)
         {
-            Color32 trailBase = _palette.PlayerTrail;
+            if (!_enableTrail || _trailPoints.Count == 0) return;
 
-            foreach (var pt in _trailPoints)
+            Color32 baseColor = _palette != null ? _palette.PlayerTrail : new Color32(0, 150, 200, 100);
+
+            for (int i = 0; i < _trailPoints.Count; i++)
             {
-                float alphaRatio = Mathf.Clamp01(pt.RemainingTime / pt.MaxTime);
-                Color32 fadedColor = new Color32(trailBase.r, trailBase.g, trailBase.b, (byte)(trailBase.a * alphaRatio));
-                renderer.DrawWorldGlyph(pt.Position, pt.Glyph, fadedColor, Color.clear, GameConstants.LAYER_PLAYER_TRAIL);
+                var tp = _trailPoints[i];
+                float t = tp.RemainingTime / tp.MaxTime;
+                byte alpha = (byte)(baseColor.a * t);
+                Color32 c = new Color32(baseColor.r, baseColor.g, baseColor.b, alpha);
+
+                renderer.DrawWorldGlyph(
+                    tp.Position,
+                    tp.Glyph,
+                    c,
+                    Color.clear,
+                    GameConstants.LAYER_PLAYER - 1
+                );
             }
         }
     }
